@@ -3,8 +3,8 @@ import time
 import random
 
 pygame.init()
-SCREEN = (600,400)
-SNAKE_SIZE = 20
+SCREEN = (800,600)
+SNAKE_SIZE = 10
 display=pygame.display.set_mode(SCREEN)
 pygame.display.set_caption('snake game')
 
@@ -30,7 +30,7 @@ def gameLoop():
     x1_change=0 
     y1_change=0
     snake_List=[(x1,y1)]
-    Length_of_snake=1
+    Length_of_snake=10
     foodx=round(random.randrange(0,int((SCREEN[0]-SNAKE_SIZE)/(SNAKE_SIZE*1.0))))*SNAKE_SIZE*1.0
     foody=round(random.randrange(0,int((SCREEN[1]-SNAKE_SIZE)/(SNAKE_SIZE*1.0))))*SNAKE_SIZE*1.0
     while not game_over:
@@ -76,7 +76,6 @@ def gameLoop():
         if x1+x1_change>SCREEN[0] or x1+x1_change<0 or y1+y1_change>SCREEN[1] or y1+y1_change<0:
             game_close=True
 
-        
         if x1_change == 0 and y1_change == 0: continue  #neu ng dung chua bat dau tro choi thi bo qua khoi lenh duoi
 
         new_head=[x1+x1_change,y1+y1_change]
@@ -94,7 +93,7 @@ def gameLoop():
             foody=round(random.randrange(0,int((SCREEN[1]-SNAKE_SIZE)/(SNAKE_SIZE*1.0))))*SNAKE_SIZE*1.0
             Length_of_snake+=1
 
-        clock.tick(10) # thoi gian gioi han cho vong
+        clock.tick(20) # thoi gian gioi han cho vong
     pygame.quit()
    
     
