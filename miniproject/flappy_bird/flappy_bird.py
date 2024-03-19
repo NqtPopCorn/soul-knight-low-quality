@@ -10,9 +10,9 @@ def draw_floor():
 def create_pipe_rect(pipe_heights, pipe_surface):
     pipe_height = random.choice(pipe_heights)
     STARTX = 500 
-    FREE_SPACE = 250
-    bot_rect = pipe_surface.get_rect(midtop = (STARTX, pipe_height + FREE_SPACE))
+    FREE_SPACE = 200
     top_rect = pipe_surface.get_rect(midbottom = (STARTX, pipe_height)) 
+    bot_rect = pipe_surface.get_rect(midtop = (STARTX, pipe_height + FREE_SPACE))
     return top_rect, bot_rect
 def move_pipes_rect(pipe_rect_list):
     for pipe_rect in pipe_rect_list:
@@ -63,7 +63,7 @@ def draw_bg():
         bg_x_pos = 0
 def update_score():
     global score, pipe_rect_list, highest_score, upcoming_pipe
-    if len(pipe_rect_list) > upcoming_pipe and pipe_rect_list[upcoming_pipe].centerx <= bird_rect.left:
+    if len(pipe_rect_list) > upcoming_pipe and pipe_rect_list[upcoming_pipe].right <= bird_rect.left:
         score += 1
         score_sound.play()
         upcoming_pipe += 2
@@ -75,7 +75,7 @@ pygame.mixer.pre_init()
 FPS = 120
 BIRD_SPEED = 3
 GRAVITY = 0.25
-GAME_FONT = pygame.font.Font('C:/Học/python/doan/miniproject/04B_19.TTF', 40)
+GAME_FONT = pygame.font.Font('C:/Học/python/doan/miniproject/flappy_bird/04B_19.TTF', 40)
 FLOOR_Y = 650
 BG_WIDTH = 432
 BG_HEIGHT = 768
@@ -87,22 +87,22 @@ game_active = True
 score = 0
 highest_score = 0
 pygame.display.set_caption('Flappy Bird')
-pygame.display.set_icon(pygame.image.load('miniproject/assets/yellowbird-upflap.png'))
+pygame.display.set_icon(pygame.image.load('miniproject/flappy_bird/assets/yellowbird-upflap.png'))
 # background
-bg = pygame.image.load('miniproject/assets/background-night.png').convert()
+bg = pygame.image.load('miniproject/flappy_bird/assets/background-night.png').convert()
 bg = pygame.transform.scale2x(bg)
 bg_rect = bg.get_rect(topleft=(0,0))
 bg_x_pos = 0
 
 # chen floor
-floor = pygame.image.load('miniproject/assets/floor.png').convert()
+floor = pygame.image.load('miniproject/flappy_bird/assets/floor.png').convert()
 floor = pygame.transform.scale2x(floor)
 floor_x_pos = 0
 
 # chim
-bird_midflag = pygame.image.load('miniproject/assets/yellowbird-midflap.png').convert_alpha()
-bird_upflag = pygame.image.load('miniproject/assets/yellowbird-upflap.png').convert_alpha()
-bird_downflag = pygame.image.load('miniproject/assets/yellowbird-downflap.png').convert_alpha()
+bird_midflag = pygame.image.load('miniproject/flappy_bird/assets/yellowbird-midflap.png').convert_alpha()
+bird_upflag = pygame.image.load('miniproject/flappy_bird/assets/yellowbird-upflap.png').convert_alpha()
+bird_downflag = pygame.image.load('miniproject/flappy_bird/assets/yellowbird-downflap.png').convert_alpha()
 bird_list = [bird_downflag, bird_midflag, bird_upflag]
 bird_index = 0
 bird = bird_list[bird_index]
@@ -113,24 +113,24 @@ bird_flap = pygame.USEREVENT + 1
 pygame.time.set_timer(bird_flap, 200) 
 
 # ong
-pipe_surface = pygame.image.load('miniproject/assets/pipe-green.png').convert()
+pipe_surface = pygame.image.load('miniproject/flappy_bird/assets/pipe-green.png').convert()
 pipe_surface = pygame.transform.scale2x(pipe_surface)
 pipe_rect_list = []
-pipe_heights = [100, 200, 300]
+pipe_heights = [100, 150, 200, 250, 300]
 upcoming_pipe = 0
 # tao timer ong
 spawm_pipe = pygame.USEREVENT
 pygame.time.set_timer(spawm_pipe, 1200)
 
 # tao man hinh ket thuc
-game_over_surface = pygame.image.load('miniproject/assets/message.png').convert_alpha()
+game_over_surface = pygame.image.load('miniproject/flappy_bird/assets/message.png').convert_alpha()
 game_over_surface = pygame.transform.scale2x(game_over_surface)
 game_over_rect = game_over_surface.get_rect(center = (BG_WIDTH/2, BG_HEIGHT/2))
 
 # chen am thanh
-flap_sound = pygame.mixer.Sound('miniproject/sound/sfx_wing.wav')
-hit_sound = pygame.mixer.Sound('miniproject/sound/sfx_hit.wav')
-score_sound = pygame.mixer.Sound('miniproject/sound/sfx_point.wav')
+flap_sound = pygame.mixer.Sound('miniproject/flappy_bird/sound/sfx_wing.wav')
+hit_sound = pygame.mixer.Sound('miniproject/flappy_bird/sound/sfx_hit.wav')
+score_sound = pygame.mixer.Sound('miniproject/flappy_bird/sound/sfx_point.wav')
 hit_sound.set_volume(0.1)
 score_sound.set_volume(0.1)
 score_countdown = 100
@@ -177,10 +177,10 @@ while True:
     draw_floor()
 
     # clean up
-    if len(pipe_rect_list) > 0 and pipe_rect_list[0].centerx < -100:
+    if len(pipe_rect_list) > 0 and pipe_rect_list[0].right <= 0:
         pipe_rect_list.pop(0)
         pipe_rect_list.pop(0)
         upcoming_pipe -= 2
     pygame.display.update()
-    clock.tick(FPS)
+    clock.tick(FPS)   
        
