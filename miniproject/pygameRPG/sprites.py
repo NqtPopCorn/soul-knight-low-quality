@@ -43,9 +43,8 @@ class Player(pygame.sprite.Sprite):
         self.moverment()
 
         self.rect.x += self.x_change
-        self.rect.y += self.y_change
-
         self.collide_blocks("x")
+        self.rect.y += self.y_change
         self.collide_blocks("y")
 
         self.x_change = 0
@@ -70,22 +69,19 @@ class Player(pygame.sprite.Sprite):
     def collide_blocks(self, dir):
         if (dir == "x"):
             hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            
             if hits:
-                for block in hits:
-                    if self.x_change > 0 and self.rect.right < block.rect.right:
-                        self.rect.right = block.rect.left
-                    elif self.x_change < 0 and self.rect.left > block.rect.left:
-                        self.rect.left = block.rect.right
+                if self.x_change > 0:
+                    self.rect.right = hits[0].rect.left
+                if self.x_change < 0:
+                    self.rect.left = hits[0].rect.right
                 
         if (dir == "y"):
             hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
             if hits:
-                for block in hits:
-                    if self.y_change > 0 and self.rect.bottom < block.rect.bottom:
-                        self.rect.bottom = block.rect.top
-                    elif self.y_change < 0 and self.rect.top > block.rect.top:
-                        self.rect.top = block.rect.bottom
+                if self.y_change > 0:
+                    self.rect.bottom = hits[0].rect.top
+                if self.y_change < 0:
+                    self.rect.top = hits[0].rect.bottom
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y):
