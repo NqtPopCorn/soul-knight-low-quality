@@ -3,7 +3,7 @@ from sprites import *
 from config import *
 import sys
 
-                        #    _
+#                            _
 #                         _ooOoo_
 #                        o8888888o
 #                        88" . "88
@@ -11,28 +11,32 @@ import sys
 #                        O\  =  /O
 #                     ____/`---'\____
 #                   .'  \\|     |//  `.
-#                  /  \\|||  :  |||//  \
+#                  /  \\|||  :  |||//  \d
 #                 /  _||||| -:- |||||_  \
 #                 |   | \\\  -  /'| |   |
-#                 | \_|  `\`---'//  |_/ |
+#                 | \_|  `\`---'//  |_/ |a
 #                 \  .-\__ `-. -'__/-.  /
 #               ___`. .'  /--.--\  `. .'___
 #            ."" '<  `.___\_<|>_/___.' _> \"".
 #           | | :  `- \`. ;`. _/; .'/ /  .' ; |
 #           \  \ `-.   \_\_`. _.'_/_/  -' _.' /
 # ===========`-.`___`-.__\ \___  /__.-'_.'_.-'================
+#                         `=--=-'
 
 class Game: 
     def __init__(self):
         pygame.init()
         self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
         self.clock = pygame.time.Clock()
-        # self.font = pygame.font.Font('Arial', 32)
+        self.font = pygame.font.Font('miniproject/pygameRPG/Arial.ttf', 32)
         self.running = True
 
         self.character_spritesheet = Spritesheet('miniproject/pygameRPG/img/character.png')
         self.terrain_spritesheet = Spritesheet('miniproject/pygameRPG/img/terrain.png')
+        self.enemy_spritesheet = Spritesheet('miniproject/pygameRPG/img/enemy.png')
 
+        self.intro_background = pygame.image.load('miniproject/pygameRPG/img/introbackground.png')
+        self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
 
     def create_tilemap(self):
         for i, row in enumerate(tilemap):
@@ -40,6 +44,8 @@ class Game:
                 Ground(self, j, i)
                 if col == 'B':
                     Block(self, j, i)
+                if col == 'E':
+                    Enemy(self, j, i)
                 if col == 'P':
                     Player(self, j, i)
 
@@ -78,11 +84,58 @@ class Game:
             self.update()
             self.draw()
 
-        self.running = False
-
     def gameover(self):
+        text = self.font.render('Game Over', True, RED)
+        text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
+
+        restart_button = Button(10, 50, 120, 50, WHITE, BLACK,'Restart', 32)
+
+        for sprite in self.all_sprites:
+            sprite.kill()
+
+        while(self.running):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+        
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
+            if restart_button.isPressed(mouse_pos, mouse_pressed):
+                self.new()
+                self.main()
+
+            self.screen.blit(self.gameover_background, (0,0))
+            self.screen.blit(text, text_rect)
+            self.screen.blit(restart_button.image, restart_button.rect)
+            self.clock.tick(FPS)
+            pygame.display.update()
         pass
+
     def intro_screen(self):
+        intro = True
+        title = self.font.render('Pygame RPG', True, BLACK)
+        title_rect = title.get_rect(x=10,y=10)
+        text = self.font.render('Let\'s Play', True, RED)
+        text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
+
+        play_button = Button(10, 50, 120, 50, WHITE, BLACK,'Play', 32)
+        while(intro):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    intro = False
+            
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
+            if play_button.isPressed(mouse_pos, mouse_pressed):
+                intro = False
+
+            self.screen.blit(self.intro_background, (0,0))
+            self.screen.blit(title, title_rect)
+            self.screen.blit(play_button.image, play_button.rect)
+            self.screen.blit(text, text_rect)
+            self.clock.tick(FPS)
+            pygame.display.update()
         pass
 
 g = Game()
