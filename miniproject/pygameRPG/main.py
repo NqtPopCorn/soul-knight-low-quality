@@ -39,16 +39,18 @@ class Game:
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
 
     def create_tilemap(self):
-        for i, row in enumerate(tilemap):
-            for j, col in enumerate(row):
-                Ground(self, j, i)
-                if col == 'B':
-                    Block(self, j, i)
-                if col == 'E':
-                    Enemy(self, j, i)
-                if col == 'P':
-                    Player(self, j, i)
-
+        for k in range(len(tilemaps)):
+            for i, row in enumerate(tilemaps[k]):
+                for j, col in enumerate(row):
+                    if col == 'B':
+                        Block(self, j, i, others[k])
+                    if col == 'E':
+                        Enemy(self, j, i, others[k])
+                    if col == 'P':
+                        Player(self, j, i, others[k])
+                    if(col == ' '): continue
+                    Ground(self, j, i, others[k])
+            
     # new game start
     def new(self):
         self.playing = True

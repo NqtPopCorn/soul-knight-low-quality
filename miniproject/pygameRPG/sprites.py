@@ -15,14 +15,14 @@ class Spritesheet:
         return sprite
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, others):
         self.game = game
         self._layer = PLAYER_LAYER
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)# init player sprite and add it to all_sprites group
 
-        self.x = x * TILE_SIZE
-        self.y = y * TILE_SIZE
+        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH) 
+        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT) 
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -36,6 +36,7 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x  = self.x
         self.rect.y = self.y
+
 
     def draw(self):
         # self.game.screen.blit(self.image, self.rect)
@@ -156,14 +157,14 @@ class Player(pygame.sprite.Sprite):
                     self.animation_loop = 1
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, others):
         self.game = game
         self._layer = ENERMY_LAYER
         self.groups = self.game.all_sprites, self.game.enemies
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE
-        self.y = y * TILE_SIZE
+        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
+        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -217,9 +218,9 @@ class Enemy(pygame.sprite.Sprite):
         if self.animation_loop >= 3:
             self.animation_loop = 1
         self.rect.x += self.x_change
-        self.collide_blocks("x")
+        Player.collide_blocks(self, "x")
         self.rect.y += self.y_change
-        self.collide_blocks("y")
+        Player.collide_blocks(self, "y")
 
         self.x_change = 0
         self.y_change = 0
@@ -281,31 +282,27 @@ class Enemy(pygame.sprite.Sprite):
             if hits:
                 if self.x_change > 0:
                     self.rect.right = hits[0].rect.left
-                    self.facing = random.choice(["left", "right", "up", "down"])
                 if self.x_change < 0:
                     self.rect.left = hits[0].rect.right
-                    self.facing = random.choice(["left", "right", "up", "down"])
                 
         if (dir == "y"):
             hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
             if hits:
                 if self.y_change > 0:
                     self.rect.bottom = hits[0].rect.top
-                    self.facing = random.choice(["left", "right", "up", "down"])
                 if self.y_change < 0:
                     self.rect.top = hits[0].rect.bottom
-                    self.facing = random.choice(["left", "right", "up", "down"])
 
 class Block(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, others):
 
         self.game = game
         self._layer = BLOCK_LAYER
         self.groups = self.game.all_sprites, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE
-        self.y = y * TILE_SIZE
+        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
+        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -316,14 +313,14 @@ class Block(pygame.sprite.Sprite):
         self.rect.y = self.y
 
 class Ground(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, x, y, others):
         self.game = game
         self._layer = GROUND_LAYER
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE
-        self.y = y * TILE_SIZE
+        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
+        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
