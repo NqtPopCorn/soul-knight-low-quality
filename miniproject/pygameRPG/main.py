@@ -34,20 +34,21 @@ class Game:
         self.character_spritesheet = Spritesheet('miniproject/pygameRPG/img/character.png')
         self.terrain_spritesheet = Spritesheet('miniproject/pygameRPG/img/terrain.png')
         self.enemy_spritesheet = Spritesheet('miniproject/pygameRPG/img/enemy.png')
+        self.attack_spritesheet = Spritesheet('miniproject/pygameRPG/img/attack.png')
 
         self.intro_background = pygame.image.load('miniproject/pygameRPG/img/introbackground.png')
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
 
     def create_tilemap(self):
         for k in range(len(tilemaps)):
-            for i, row in enumerate(tilemaps[k]):
+            for i, row in enumerate(tilemaps[k]):  
                 for j, col in enumerate(row):
                     if col == 'B':
                         Block(self, j, i, others[k])
                     if col == 'E':
                         Enemy(self, j, i, others[k])
                     if col == 'P':
-                        Player(self, j, i, others[k])
+                        self.player = Player(self, j, i, others[k])
                     if(col == ' '): continue
                     Ground(self, j, i, others[k])
             
@@ -68,6 +69,16 @@ class Game:
             if event.type == pygame.QUIT:
                 self.playing = False
                 self.running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    if(self.player.facing == 'up'):
+                        Attack(self, self.player.rect.x, self.player.rect.y-TILE_SIZE)
+                    if(self.player.facing == 'down'):
+                        Attack(self, self.player.rect.x, self.player.rect.y+TILE_SIZE)
+                    if(self.player.facing == 'left'):
+                        Attack(self, self.player.rect.x-TILE_SIZE, self.player.rect.y)
+                    if(self.player.facing == 'right'):
+                        Attack(self, self.player.rect.x+TILE_SIZE, self.player.rect.y)
 
     def update(self):
         self.all_sprites.update()
@@ -140,12 +151,16 @@ class Game:
             pygame.display.update()
         pass
 
-g = Game()
-g.intro_screen()
-g.new()
-while(g.running):
-    g.main()
-    g.gameover()
+def main():
+    g = Game()
+    g.intro_screen()
+    g.new()
+    while(g.running):
+        g.main()
+        g.gameover()
 
-pygame.quit()
-sys.exit()
+    pygame.quit()
+    sys.exit()
+
+if __name__ == "__main__":
+    main()
