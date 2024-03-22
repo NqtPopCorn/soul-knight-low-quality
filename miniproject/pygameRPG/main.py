@@ -11,10 +11,10 @@ import sys
 #                        O\  =  /O
 #                     ____/`---'\____
 #                   .'  \\|     |//  `.
-#                  /  \\|||  :  |||//  \d
+#                  /  \\|||  :  |||//  \
 #                 /  _||||| -:- |||||_  \
 #                 |   | \\\  -  /'| |   |
-#                 | \_|  `\`---'//  |_/ |a
+#                 | \_|  `\`---'//  |_/ |
 #                 \  .-\__ `-. -'__/-.  /
 #               ___`. .'  /--.--\  `. .'___
 #            ."" '<  `.___\_<|>_/___.' _> \"".
@@ -22,6 +22,7 @@ import sys
 #           \  \ `-.   \_\_`. _.'_/_/  -' _.' /
 # ===========`-.`___`-.__\ \___  /__.-'_.'_.-'================
 #                         `=--=-'
+
 
 class Game: 
     def __init__(self):
@@ -38,6 +39,8 @@ class Game:
 
         self.intro_background = pygame.image.load('miniproject/pygameRPG/img/introbackground.png')
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
+
+        self.t1 = pygame.time.get_ticks()
 
     def create_tilemap(self):
         for k in range(len(tilemaps)):
@@ -60,7 +63,7 @@ class Game:
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
-
+        self.bullets = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
 
     def events(self):
@@ -79,6 +82,11 @@ class Game:
                         Attack(self, self.player.rect.x-TILE_SIZE, self.player.rect.y)
                     if(self.player.facing == 'right'):
                         Attack(self, self.player.rect.x+TILE_SIZE, self.player.rect.y)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if(pygame.time.get_ticks()-self.t1 >= SHOOT_DELAY):
+                        self.t1 = pygame.time.get_ticks()
+                        Bullet(self)
 
     def update(self):
         self.all_sprites.update()
@@ -150,7 +158,6 @@ class Game:
             self.clock.tick(FPS)
             pygame.display.update()
         pass
-
 def main():
     g = Game()
     g.intro_screen()
