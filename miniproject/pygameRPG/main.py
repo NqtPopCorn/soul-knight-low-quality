@@ -11,10 +11,10 @@ import sys
 #                        O\  =  /O
 #                     ____/`---'\____
 #                   .'  \\|     |//  `.
-#                  /  \\|||  :  |||//  \d
+#                  /  \\|||  :  |||//  \
 #                 /  _||||| -:- |||||_  \
 #                 |   | \\\  -  /'| |   |
-#                 | \_|  `\`---'//  |_/ |a
+#                 | \_|  `\`---'//  |_/ |
 #                 \  .-\__ `-. -'__/-.  /
 #               ___`. .'  /--.--\  `. .'___
 #            ."" '<  `.___\_<|>_/___.' _> \"".
@@ -22,6 +22,7 @@ import sys
 #           \  \ `-.   \_\_`. _.'_/_/  -' _.' /
 # ===========`-.`___`-.__\ \___  /__.-'_.'_.-'================
 #                         `=--=-'
+
 
 class Game: 
     def __init__(self):
@@ -35,9 +36,11 @@ class Game:
         self.terrain_spritesheet = Spritesheet('miniproject/pygameRPG/img/terrain.png')
         self.enemy_spritesheet = Spritesheet('miniproject/pygameRPG/img/enemy.png')
         self.attack_spritesheet = Spritesheet('miniproject/pygameRPG/img/attack.png')
-
+        self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
         self.intro_background = pygame.image.load('miniproject/pygameRPG/img/introbackground.png')
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
+
+        self.t1 = pygame.time.get_ticks()
 
     def create_tilemap(self):
         for k in range(len(tilemaps)):
@@ -49,18 +52,18 @@ class Game:
                         Enemy(self, j, i, others[k])
                     if col == 'P':
                         self.player = Player(self, j, i, others[k])
+                        self.player_weapon = Glock(self)
                     if(col == ' '): continue
                     Ground(self, j, i, others[k])
             
     # new game start
     def new(self):
         self.playing = True
-        
         self.all_sprites = pygame.sprite.LayeredUpdates()
         self.blocks = pygame.sprite.LayeredUpdates()
         self.enemies = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
-
+        self.bullets = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
 
     def events(self):
@@ -71,14 +74,19 @@ class Game:
                 self.running = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    if(self.player.facing == 'up'):
-                        Attack(self, self.player.rect.x, self.player.rect.y-TILE_SIZE)
-                    if(self.player.facing == 'down'):
-                        Attack(self, self.player.rect.x, self.player.rect.y+TILE_SIZE)
-                    if(self.player.facing == 'left'):
-                        Attack(self, self.player.rect.x-TILE_SIZE, self.player.rect.y)
-                    if(self.player.facing == 'right'):
-                        Attack(self, self.player.rect.x+TILE_SIZE, self.player.rect.y)
+                    if self.player.facing == 'right':
+                        Attack(self, self.player.rect.x + 32, self.player.rect.y)
+                    if self.player.facing == 'left':
+                        Attack(self, self.player.rect.x - 32, self.player.rect.y)
+                    if self.player.facing == 'up':
+                        Attack(self, self.player.rect.x, self.player.rect.y - 32)
+                    if self.player.facing == 'down':
+                        Attack(self, self.player.rect.x, self.player.rect.y + 32)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1 and self.player_weapon.can_shoot():
+                    self.player.attacking = True
+                    self.player_weapon.shoot()
+                pass
 
     def update(self):
         self.all_sprites.update()
@@ -150,7 +158,6 @@ class Game:
             self.clock.tick(FPS)
             pygame.display.update()
         pass
-
 def main():
     g = Game()
     g.intro_screen()
