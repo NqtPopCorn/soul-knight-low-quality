@@ -43,19 +43,9 @@ class Game:
         self.t1 = pygame.time.get_ticks()
 
     def create_tilemap(self):
-        for k in range(len(tilemaps)):
-            for i, row in enumerate(tilemaps[k]):  
-                for j, col in enumerate(row):
-                    if col == 'B':
-                        Block(self, j, i, others[k])
-                    if col == 'E':
-                        Enemy(self, j, i, others[k])
-                    if col == 'P':
-                        self.player = Player(self, j, i, others[k])
-                        self.player_weapon = Glock(self)
-                    if(col == ' '): continue
-                    Ground(self, j, i, others[k])
-            
+        self.maps = MapList(tilemaps, self)
+        self.maps.draw()
+
     # new game start
     def new(self):
         self.playing = True
@@ -64,6 +54,8 @@ class Game:
         self.enemies = pygame.sprite.LayeredUpdates()
         self.attacks = pygame.sprite.LayeredUpdates()
         self.bullets = pygame.sprite.LayeredUpdates()
+        self.guns = pygame.sprite.LayeredUpdates()
+        self.entrances = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
 
     def events(self):

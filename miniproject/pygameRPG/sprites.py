@@ -75,7 +75,7 @@ class Player(pygame.sprite.Sprite):
                 for attack in self.game.attacks:
                     attack.rect.x -= PLAYER_SPEED
             self.x_change = -PLAYER_SPEED
-            if self.game.player_weapon.target_nearest_enemy() == None: self.facing = "left"
+            if self.game.player_weapon.find_nearest_enemy() == None: self.facing = "left"
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             if(self.rect.centerx > WIN_WIDTH/2 - CAMERA_SIZE):
                 for sprite in self.game.all_sprites:
@@ -83,7 +83,7 @@ class Player(pygame.sprite.Sprite):
                 for attack in self.game.attacks:
                     attack.rect.x += PLAYER_SPEED
             self.x_change = PLAYER_SPEED
-            if self.game.player_weapon.target_nearest_enemy() == None: self.facing = "right"
+            if self.game.player_weapon.find_nearest_enemy() == None: self.facing = "right"
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             if(self.rect.centery < WIN_HEIGHT/2 + CAMERA_SIZE):
                 for sprite in self.game.all_sprites:
@@ -108,18 +108,20 @@ class Player(pygame.sprite.Sprite):
         if (dir == "x"):
             hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
             if hits:
-                if self.x_change > 0:
-                    self.rect.right = hits[0].rect.left
-                if self.x_change < 0:
-                    self.rect.left = hits[0].rect.right
+                if self.game.entrances.has(hits[0]) == False or hits[0].enable == True:
+                    if self.x_change > 0:
+                        self.rect.right = hits[0].rect.left
+                    if self.x_change < 0:
+                        self.rect.left = hits[0].rect.right
                 
         if (dir == "y"):
             hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
             if hits:
-                if self.y_change > 0:
-                    self.rect.bottom = hits[0].rect.top
-                if self.y_change < 0:
-                    self.rect.top = hits[0].rect.bottom
+                if self.game.entrances.has(hits[0]) == False or hits[0].enable == True:
+                    if self.y_change > 0:
+                        self.rect.bottom = hits[0].rect.top
+                    if self.y_change < 0:
+                        self.rect.top = hits[0].rect.bottom
 
     def animate(self):
         if self.facing == "left":
@@ -184,6 +186,7 @@ class Enemy(pygame.sprite.Sprite):
                             self.game.enemy_spritesheet.get_sprite(67, 98, self.width, self.height)]
     
         self.HP = 3
+
     def normal_movement(self):
         if self.facing == "up":
             self.y_change -= ENEMY_SPEED
@@ -218,9 +221,9 @@ class Enemy(pygame.sprite.Sprite):
         self.collide_bullet()
         self.animate()
         self.rect.x += self.x_change
-        Player.collide_blocks(self, "x")
+        self.collide_blocks("x")
         self.rect.y += self.y_change
-        Player.collide_blocks(self, "y")
+        self.collide_blocks("y")
 
         self.x_change = 0
         self.y_change = 0
@@ -409,11 +412,11 @@ class Attack(pygame.sprite.Sprite):
     #end
 #end           
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, game, x, y):
+    def __init__(self, game, heading, rad):
         self._layer = BULLET_LAYER
         self.game = game
-        self.x = x
-        self.y = y
+        self.x = heading[0]
+        self.y = heading[1]
         self.width = 10
         self.height = 10
         self.groups = self.game.all_sprites, self.game.bullets
@@ -430,29 +433,22 @@ class Bullet(pygame.sprite.Sprite):
 
         self.x_change = 0
         self.y_change = 0
-        self.rad = self.game.player.rad
-        if(self.game.enemies.sprites()):
-            nearest_enemy = min(self.game.enemies, key=lambda x: math.sqrt((x.rect.centerx - self.rect.centerx)**2 + (x.rect.centery - self.rect.centery)**2))
-            if math.sqrt((nearest_enemy.rect.x - x)**2 + (nearest_enemy.rect.y - y)**2) < GLOCK_SCOPE:
-                dy = nearest_enemy.rect.y - y
-                dx = nearest_enemy.rect.x - x
-                #tao do lech cho dan
-                random_x = random.randint(-abs(dx)//3, abs(dx)//3)
-                random_y = random.randint(-abs(dy)//3, abs(dy)//3)
-                dx += random_x
-                dy += random_y
-                self.rad = math.atan2(dy, dx)
+        self.rad = rad + random.randint(-3, 3) * math.pi/180
+        self.max_travel = WIN_WIDTH
 
     def movement(self):
         self.rect.x += BULLET_SPEED * math.cos(self.rad)
         self.rect.y += BULLET_SPEED * math.sin(self.rad)
+        self.max_travel -= BULLET_SPEED
+        if self.max_travel <= 0:
+            self.kill()
 
     def update(self):
         self.movement()
         self.collide_blocks()
         self.rect.x += self.x_change
         self.rect.y += self.y_change
-    
+
     def collide_blocks(self):
         hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
         if hits:
@@ -462,19 +458,18 @@ class Glock(pygame.sprite.Sprite):
     def __init__(self, game):
         self._layer = GUN_LAYER
         self.game = game
-        self.x = self.game.player.rect.centerx - 8
-        self.y = self.game.player.rect.centery + 8
+        self.x = self.game.player.rect.centerx
+        self.y = self.game.player.rect.centery
         self.width = 48
         self.height = 32
-        self.groups = self.game.all_sprites
+        self.groups = self.game.all_sprites, self.game.guns
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         self.animation_loop = 0
         self.image = self.game.glock_spritesheet.get_sprite(0, 0, self.width, self.height)
 
         self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
+        self.rect.center = (self.x, self.y)
 
         self.shoot_animation = [self.game.glock_spritesheet.get_sprite(0, 0, self.width, self.height),
                             self.game.glock_spritesheet.get_sprite(48, 0, self.width, self.height),
@@ -482,7 +477,7 @@ class Glock(pygame.sprite.Sprite):
                             self.game.glock_spritesheet.get_sprite(144, 0, self.width, self.height),
                             self.game.glock_spritesheet.get_sprite(192, 0, self.width, self.height)]
         self.timer = 0
-        self.rad = 0
+        self.rad = self.game.player.rad
         self.scope = GLOCK_SCOPE
         self.delay = GLOCK_DELAY
 
@@ -490,26 +485,33 @@ class Glock(pygame.sprite.Sprite):
         self.movement()
         self.animate()
 
-    def target_nearest_enemy(self):
+    def find_nearest_enemy(self):
         nearest_enemy = None
         self.rad = self.game.player.rad
         if(self.game.enemies.sprites()):
-            nearest_enemy = min(self.game.enemies, key=lambda x: math.sqrt((x.rect.centerx - self.rect.centerx)**2 + (x.rect.centery - self.rect.centery)**2))
-            if math.sqrt((nearest_enemy.rect.x - self.rect.x)**2 + (nearest_enemy.rect.y - self.rect.y)**2) < GLOCK_SCOPE:
-                dy = nearest_enemy.rect.y - self.rect.y
-                dx = nearest_enemy.rect.x - self.rect.x
-                self.rad = round(math.atan2(dy, dx),2)
+            nearest_enemy = min(self.game.enemies, key=lambda x: math.sqrt((x.rect.x - self.game.player.rect.x)**2 + (x.rect.y - self.game.player.rect.y)**2))
+            if math.sqrt((nearest_enemy.rect.x - self.game.player.rect.x)**2 + (nearest_enemy.rect.y - self.game.player.rect.y)**2) < GLOCK_SCOPE:
+                dy = nearest_enemy.rect.y - self.game.player.rect.y
+                dx = nearest_enemy.rect.x - self.game.player.rect.x
+                self.rad = math.atan2(dy, dx)
         return nearest_enemy
     
     def animate(self):
-        self.target_nearest_enemy()
         next_image = self.shoot_animation[math.floor(self.animation_loop)].copy()
-        if (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad > math.pi/2 and  self.rad <= math.pi): 
+        if self.have_left_enemy(): 
             next_image = pygame.transform.flip(next_image.copy(), True, False)
-            self.rad = self.rad - math.pi
+            rad = self.rad + math.pi
             self.game.player.facing = "left"
-        else: self.game.player.facing = "right"
-        self.image = pygame.transform.rotate(next_image, int(math.degrees(-self.rad)))
+            self._layer = PLAYER_LAYER - 1
+            self.game.all_sprites.change_layer(self, PLAYER_LAYER - 1)
+            self.game.guns.change_layer(self, PLAYER_LAYER - 1)
+            self.image = pygame.transform.rotate(next_image, math.degrees(-rad))
+        else: 
+            self.game.player.facing = "right"
+            self._layer = PLAYER_LAYER + 1
+            self.game.all_sprites.change_layer(self, PLAYER_LAYER + 1)
+            self.game.guns.change_layer(self, PLAYER_LAYER + 1)
+            self.image = pygame.transform.rotate(next_image, math.degrees(-self.rad))
         self.image.set_colorkey(BLACK)
         self.rect = self.image.get_rect(center=self.rect.center)
 
@@ -520,16 +522,17 @@ class Glock(pygame.sprite.Sprite):
                 self.game.player.attacking = False
 
     def movement(self):
-        self.rect.x = self.game.player.rect.x
-        self.rect.y = self.game.player.rect.y
+        if self.game.player.facing == "right":
+            self.rect.center = (self.game.player.rect.centerx + 8, self.game.player.rect.centery + 6)
+        if self.game.player.facing == "left":
+            self.rect.center = (self.game.player.rect.centerx - 8, self.game.player.rect.centery + 6)
+
+    def have_left_enemy(self):
+        self.find_nearest_enemy()
+        return (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad >= math.pi/2 and  self.rad <= math.pi)
 
     def shoot(self):
-        # headx = (self.rect.right-8) * math.cos(self.rad) - (self.rect.centery-8) * math.sin(self.rad)
-        # heady = (self.rect.centery-8) * math.sin(self.rad) + (self.rect.right-8) * math.cos(self.rad)
-        if (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad > math.pi/2 and  self.rad <= math.pi): 
-            self.game.player.facing = "left"
-        else: self.game.player.facing = "right"
-        Bullet(self.game, self.rect.right-8, self.rect.centery-8)
+        Bullet(self.game, self.find_heading(), self.rad)
 
     def can_shoot(self):
         now = pygame.time.get_ticks()
@@ -538,6 +541,13 @@ class Glock(pygame.sprite.Sprite):
             return True
         return False
 
+    def find_heading(self):
+        alpha = math.atan(8/16)
+        if self.game.player.facing == "right":
+            alpha = -alpha
+        headx = self.rect.centerx + 320**0.5 * math.cos(self.rad+alpha)
+        heady = self.rect.centery + 320**0.5 * math.sin(self.rad+alpha)
+        return headx, heady
 class Button:
     def __init__(self, x, y, width, height, fg, bg, content, fontsize):
         self.font = pygame.font.Font('miniproject/pygameRPG/Arial.ttf', fontsize)
@@ -564,3 +574,154 @@ class Button:
             if pressed[0]:
                 return True
         return False
+    
+class MyMap(pygame.sprite.Sprite): 
+    def __init__(self, tilemap, game):
+        self._layer = MAP_LAYER
+        self.mappingpos = [0, 0]
+        self.tilemap = tilemap
+        self.isDrawn = False
+        self.game = game
+        self.top = None
+        self.bottom = None
+        self.left = None
+        self.right = None
+        self.num_enemies = 0
+        self.groups = self.game.all_sprites
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        self.entrances = pygame.sprite.Group()
+        self.enemy_sprites = pygame.sprite.Group()
+        
+    def draw(self):
+        create_tilemap(self.game, self.tilemap, self.mappingpos, self)
+        self.isDrawn = True
+        self.draw_pipes()
+         
+    def draw_pipes(self):
+        if(self.top != None):
+            pipe_mapping_pos = [self.mappingpos[0], self.mappingpos[1] - 1]
+            create_tilemap(self.game, vpipemap, pipe_mapping_pos)
+        if(self.bottom != None):
+            pipe_mapping_pos = [self.mappingpos[0], self.mappingpos[1] + 1]
+            create_tilemap(self.game, vpipemap, pipe_mapping_pos)
+        if(self.left != None):
+            pipe_mapping_pos = [self.mappingpos[0] - 1, self.mappingpos[1]]
+            create_tilemap(self.game, hpipemap, pipe_mapping_pos)
+        if(self.right != None):
+            pipe_mapping_pos = [self.mappingpos[0] + 1, self.mappingpos[1]]
+            create_tilemap(self.game, hpipemap, pipe_mapping_pos)
+
+    def checkEntrance(self, i, j):
+        if(self.top != None):
+            if i == 0 and j > 6 and j < 13:
+                return True
+        if(self.bottom != None):
+            if i == 14 and j > 6 and j < 13:
+                return True
+        if(self.left != None):
+            if j == 0 and i > 4 and i < 10:
+                return True
+        if(self.right != None):
+            if j == 19 and i > 4 and i < 10:
+                return True
+        return False
+
+    def update(self):
+        count  = 0
+        for sprite in self.enemy_sprites:
+            if sprite.HP > 0: count += 1
+        self.num_enemies = count
+        if self.rect.contains(self.game.player.rect) and self.num_enemies > 0:
+            for sprite in self.entrances:
+                sprite.enable = True
+        else:
+            for sprite in self.entrances:
+                sprite.enable = False
+
+    def update_rect(self):
+        self.image = pygame.Surface((WIN_WIDTH - TILE_SIZE*2, WIN_HEIGHT - TILE_SIZE*2))
+        self.rect = self.image.get_rect()
+        self.rect.topleft = ( 32 + self.mappingpos[0] * WIN_WIDTH, 32 + self.mappingpos[1] * WIN_HEIGHT)
+
+class Entrance(pygame.sprite.Sprite):
+    def __init__(self, game, x, y, others):
+        self.enable = True
+        self.game = game
+        self._layer = BLOCK_LAYER
+        self.groups = self.game.all_sprites, self.game.entrances, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
+        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
+        self.width = TILE_SIZE
+        self.height = TILE_SIZE
+
+        self.image = self.game.terrain_spritesheet.get_sprite(384, 576, self.width, self.height)
+
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+    def update(self):
+        if(self.enable): 
+            self.image = self.game.terrain_spritesheet.get_sprite(704, 160, self.width, self.height)
+        else:
+            self.image = self.game.terrain_spritesheet.get_sprite(95, 576, self.width, self.height)
+        
+class MapList:
+    def __init__(self, tilemaps, game):
+        self.maps = []
+        for tilemap in tilemaps:
+            self.maps.append(MyMap(tilemap, game))
+
+        self.link(self.maps[0], self.maps[1], "right")
+        self.link(self.maps[1], self.maps[2], "top")
+        self.link(self.maps[1], self.maps[3], "bottom")
+
+        for map in self.maps:
+            map.update_rect()
+        
+    def draw(self):
+        self.DFS_draw(self.maps[0])
+
+    def DFS_draw(self, map):
+        map.draw()
+        for adj in [map.top, map.bottom, map.left, map.right]:
+            if  adj != None and not adj.isDrawn:
+                self.DFS_draw(adj)
+
+    def link(self, m1, m2, dir):
+        if(dir == "right"):
+            m1.right = m2
+            m2.left = m1
+            m2.mappingpos = [m1.mappingpos[0] + 2, m1.mappingpos[1]]
+        if(dir == "left"):
+            m1.left = m2
+            m2.right = m1
+            m2.mappingpos = [m1.mappingpos[0] - 2, m1.mappingpos[1]]
+        if(dir == "top"):
+            m1.top = m2
+            m2.bottom = m1
+            m2.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] - 2]
+        if(dir == "bottom"):
+            m1.bottom = m2
+            m2.top = m1
+            m2.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] + 2]
+
+def create_tilemap(game, tilemap, mappingpos, mymap: MyMap = None):
+    for i, row in enumerate(tilemap):
+        for j, col in enumerate(row):
+            if col == 'B':
+                if(mymap != None and mymap.checkEntrance(i, j)):
+                    sprite = Entrance(game, j, i, mappingpos)
+                    mymap.entrances.add(sprite)
+                else: block = Block(game, j, i, mappingpos)
+            if col == 'E':
+                enemy = Enemy(game, j, i, mappingpos)
+                if(mymap != None):
+                    mymap.enemy_sprites.add(enemy)
+            if col == 'P':
+                game.player = Player(game, j, i, mappingpos)
+                game.player_weapon = Glock(game)
+            if(col == ' '): continue
+            Ground(game, j, i, mappingpos)
