@@ -49,6 +49,15 @@ class Player(pygame.sprite.Sprite):
         
         self.rad = 0
         self.score = 0
+        self.HP = 5
+        self.max_hp = 5
+        self.armour = 3
+        self.max_armour = 3
+        self.mana = 128
+        self.max_mana = 128
+        self.timer_hit = 0
+        self.timer_armour = 0
+        self.timer_attack = 0
 
     def update(self):
         self.movement()
@@ -65,6 +74,12 @@ class Player(pygame.sprite.Sprite):
         
         self.x_change = 0
         self.y_change = 0
+
+        #TODO: sau 4s khong chien dau se hoi 1 giap / s
+        if self.armour < self.max_armour and pygame.time.get_ticks() - self.timer_attack > 4000:
+            if pygame.time.get_ticks() - self.timer_armour > 1000:
+                self.armour += 1
+                self.timer_armour = pygame.time.get_ticks()
     
     def movement(self):
         keys = pygame.key.get_pressed()
@@ -102,7 +117,17 @@ class Player(pygame.sprite.Sprite):
     def collide_enemy(self):
         hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
         if hits:
-            self.game.playing = False
+            if pygame.time.get_ticks() - self.timer_hit > 500:
+                if(self.armour > 0):
+                    self.armour -= 1
+                    self.timer_attack = pygame.time.get_ticks()
+                else:
+                    self.HP -= 1
+                self.timer_hit = pygame.time.get_ticks()
+                if(self.HP <= 0):
+                    self.game.playing = False
+
+                
 
     def collide_blocks(self, dir):
         if (dir == "x"):
@@ -454,48 +479,22 @@ class Bullet(pygame.sprite.Sprite):
         if hits:
             self.kill()
 
-class Glock(pygame.sprite.Sprite):
-    def __init__(self, game):
-        self._layer = GUN_LAYER
-        self.game = game
-        self.x = self.game.player.rect.centerx
-        self.y = self.game.player.rect.centery
-        self.width = 48
-        self.height = 32
-        self.groups = self.game.all_sprites, self.game.guns
-        pygame.sprite.Sprite.__init__(self, self.groups)
-
-        self.animation_loop = 0
-        self.image = self.game.glock_spritesheet.get_sprite(0, 0, self.width, self.height)
-
-        self.rect = self.image.get_rect()
-        self.rect.center = (self.x, self.y)
-
-        self.shoot_animation = [self.game.glock_spritesheet.get_sprite(0, 0, self.width, self.height),
-                            self.game.glock_spritesheet.get_sprite(48, 0, self.width, self.height),
-                            self.game.glock_spritesheet.get_sprite(96, 0, self.width, self.height),
-                            self.game.glock_spritesheet.get_sprite(144, 0, self.width, self.height),
-                            self.game.glock_spritesheet.get_sprite(192, 0, self.width, self.height)]
-        self.timer = 0
-        self.rad = self.game.player.rad
-        self.scope = GLOCK_SCOPE
-        self.delay = GLOCK_DELAY
-
-    def update(self):
-        self.movement()
-        self.animate()
-
+class Gun(pygame.sprite.Sprite):
     def find_nearest_enemy(self):
         nearest_enemy = None
         self.rad = self.game.player.rad
         if(self.game.enemies.sprites()):
             nearest_enemy = min(self.game.enemies, key=lambda x: math.sqrt((x.rect.x - self.game.player.rect.x)**2 + (x.rect.y - self.game.player.rect.y)**2))
-            if math.sqrt((nearest_enemy.rect.x - self.game.player.rect.x)**2 + (nearest_enemy.rect.y - self.game.player.rect.y)**2) < GLOCK_SCOPE:
+            if math.sqrt((nearest_enemy.rect.x - self.game.player.rect.x)**2 + (nearest_enemy.rect.y - self.game.player.rect.y)**2) < self.scope:
                 dy = nearest_enemy.rect.y - self.game.player.rect.y
                 dx = nearest_enemy.rect.x - self.game.player.rect.x
                 self.rad = math.atan2(dy, dx)
         return nearest_enemy
     
+    def update(self):
+        self.animate()
+        self.movement()
+
     def animate(self):
         next_image = self.shoot_animation[math.floor(self.animation_loop)].copy()
         if self.have_left_enemy(): 
@@ -523,31 +522,97 @@ class Glock(pygame.sprite.Sprite):
 
     def movement(self):
         if self.game.player.facing == "right":
-            self.rect.center = (self.game.player.rect.centerx + 8, self.game.player.rect.centery + 6)
+            self.rect.center = (self.game.player.rect.centerx + self.place_right[0], self.game.player.rect.centery + self.place_right[1])
         if self.game.player.facing == "left":
-            self.rect.center = (self.game.player.rect.centerx - 8, self.game.player.rect.centery + 6)
+            self.rect.center = (self.game.player.rect.centerx - self.place_right[0], self.game.player.rect.centery + self.place_right[1])
 
     def have_left_enemy(self):
         self.find_nearest_enemy()
         return (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad >= math.pi/2 and  self.rad <= math.pi)
-
+    
     def shoot(self):
         Bullet(self.game, self.find_heading(), self.rad)
 
     def can_shoot(self):
         now = pygame.time.get_ticks()
-        if now - self.timer > GLOCK_DELAY:
+        if now - self.timer > self.delay:
             self.timer = now
             return True
         return False
-
+    
     def find_heading(self):
-        alpha = math.atan(8/16)
+        center_image = (self.width/2, self.height/2)
+        vector = (self.headpos[0] - center_image[0], self.headpos[1] - center_image[1])
+        hypotenuse = math.sqrt(vector[0]**2 + vector[1]**2)
+        alpha = math.acos(vector[0]/hypotenuse)
         if self.game.player.facing == "right":
             alpha = -alpha
-        headx = self.rect.centerx + 320**0.5 * math.cos(self.rad+alpha)
-        heady = self.rect.centery + 320**0.5 * math.sin(self.rad+alpha)
+        headx = self.rect.centerx +  hypotenuse * math.cos(self.rad+alpha)
+        heady = self.rect.centery +  hypotenuse * math.sin(self.rad+alpha)
         return headx, heady
+
+class Glock(Gun):
+    def __init__(self, game):
+        self._layer = GUN_LAYER
+        self.game = game
+        self.x = self.game.player.rect.centerx
+        self.y = self.game.player.rect.centery
+        self.width = 48
+        self.height = 32
+        self.groups = self.game.all_sprites, self.game.guns
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.animation_loop = 0
+        self.image = self.game.glock_spritesheet.get_sprite(0, 0, self.width, self.height)
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+
+        self.shoot_animation = [self.game.glock_spritesheet.get_sprite(0, 0, self.width, self.height),
+                            self.game.glock_spritesheet.get_sprite(48, 0, self.width, self.height),
+                            self.game.glock_spritesheet.get_sprite(96, 0, self.width, self.height),
+                            self.game.glock_spritesheet.get_sprite(144, 0, self.width, self.height),
+                            self.game.glock_spritesheet.get_sprite(192, 0, self.width, self.height)]
+        self.timer = 0
+        self.rad = self.game.player.rad
+        self.scope = GLOCK_SCOPE
+        self.delay = GLOCK_DELAY
+
+        #pos against player to place gun when facing right
+        self.place_right = (8, 6)
+        self.headpos = (40, 8)
+
+class AK47(Gun):
+    def __init__(self, game):
+        self._layer = GUN_LAYER
+        self.game = game
+        self.x = self.game.player.rect.centerx
+        self.y = self.game.player.rect.centery
+        self.width = 64
+        self.height = 16
+        self.groups = self.game.all_sprites, self.game.guns
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.animation_loop = 0
+        self.image = self.game.ak47_spritesheet.get_sprite(0, 0, self.width, self.height)
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+
+        self.shoot_animation = [self.game.ak47_spritesheet.get_sprite(0, 0, self.width, self.height),
+                            self.game.ak47_spritesheet.get_sprite(64, 0, self.width, self.height),
+                            self.game.ak47_spritesheet.get_sprite(128, 0, self.width, self.height),
+                            self.game.ak47_spritesheet.get_sprite(192, 0, self.width, self.height),
+                            self.game.ak47_spritesheet.get_sprite(256, 0, self.width, self.height)]
+        self.timer = 0
+        self.rad = self.game.player.rad
+        self.scope = AK47_SCOPE
+        self.delay = AK47_DELAY
+
+        #pos against player to place gun when facing right
+        self.place_right = (6, 4)
+        self.headpos = (48, 4)
+
 class Button:
     def __init__(self, x, y, width, height, fg, bg, content, fontsize):
         self.font = pygame.font.Font('miniproject/pygameRPG/Arial.ttf', fontsize)
@@ -722,6 +787,102 @@ def create_tilemap(game, tilemap, mappingpos, mymap: MyMap = None):
                     mymap.enemy_sprites.add(enemy)
             if col == 'P':
                 game.player = Player(game, j, i, mappingpos)
-                game.player_weapon = Glock(game)
+                game.player_weapon = AK47(game)
             if(col == ' '): continue
             Ground(game, j, i, mappingpos)
+
+class PlayerBars(pygame.sprite.Sprite):
+    def __init__(self, game):
+        self._layer = UI_LAYER
+        self.groups = game.bars
+        pygame.sprite.Sprite.__init__(self, self.groups)
+        self.game = game
+        self.font = pygame.font.Font('miniproject/pygameRPG/Arial.ttf', 16)
+
+        self.image = pygame.Surface((180, 92))
+        self.rect = self.image.get_rect()
+        self.rect.x = 10
+        self.rect.y = 10
+
+        self.health_background = pygame.Surface((128, 20))
+        self.health_background.fill(DARK_BROWN)
+        self.armour_background = pygame.Surface((128, 20))
+        self.armour_background.fill(DARK_BROWN)
+        self.mana_background = pygame.Surface((128, 20))
+        self.mana_background.fill(DARK_BROWN)
+
+        #just a surface
+        self.health_icon = pygame.Surface((20, 20))
+        self.health_icon.fill(RED)
+        self.armour_icon = pygame.Surface((20, 20))
+        self.armour_icon.fill(GREY)
+        self.mana_icon = pygame.Surface((20, 20))
+        self.mana_icon.fill(BLUE)
+        
+        self.health_bar = pygame.Surface((128, 20))
+        self.health_bar.fill(RED)
+        self.health_bar_rect = self.health_bar.get_rect()
+        self.health_bar_rect.x = 42
+        self.health_bar_rect.y = 8
+
+        self.armour_bar = pygame.Surface((128, 20))
+        self.armour_bar.fill(GREY)
+        self.armour_bar_rect = self.armour_bar.get_rect()
+        self.armour_bar_rect.x = 42
+        self.armour_bar_rect.y = 36
+
+        self.mana_bar = pygame.Surface((128, 20))
+        self.mana_bar.fill(BLUE)
+        self.mana_bar_rect = self.mana_bar.get_rect()
+        self.mana_bar_rect.x = 42
+        self.mana_bar_rect.y = 64
+        
+        self.image.fill(BROWN)
+        self.image.blit(self.health_background, self.health_bar_rect)
+        self.image.blit(self.armour_background, self.armour_bar_rect)
+        self.image.blit(self.mana_background, self.mana_bar_rect)
+        self.image.blit(self.health_icon, (10, 8))
+        self.image.blit(self.armour_icon, (10, 36))
+        self.image.blit(self.mana_icon, (10, 64))
+        self.image.blit(self.health_bar, self.health_bar_rect)
+        self.image.blit(self.armour_bar, self.armour_bar_rect)
+        self.image.blit(self.mana_bar, self.mana_bar_rect)
+        
+    def update(self):
+        self.draw_HP()
+        self.draw_AR()
+        self.draw_MP()
+        pass
+
+    def draw_HP(self):
+        self.health_background.fill(DARK_BROWN)
+        self.health_bar = pygame.Surface((128 * self.game.player.HP / self.game.player.max_hp, 20))
+        info = self.font.render(f"{self.game.player.HP}/{self.game.player.max_hp}", True, WHITE)
+        info_rect = info.get_rect()
+        info_rect.center = self.health_bar_rect.center
+        self.health_bar.fill(RED)
+        self.image.blit(self.health_background, self.health_bar_rect)
+        self.image.blit(self.health_bar, self.health_bar_rect)
+        self.image.blit(info, info_rect)
+    
+    def draw_AR(self):
+        self.armour_background.fill(DARK_BROWN)
+        self.armour_bar = pygame.Surface((128 * self.game.player.armour / self.game.player.max_armour, 20))
+        info = self.font.render(f"{self.game.player.armour}/{self.game.player.max_armour}", True, WHITE)
+        info_rect = info.get_rect()
+        info_rect.center = self.armour_bar_rect.center
+        self.armour_bar.fill(GREY)
+        self.image.blit(self.armour_background,  self.armour_bar_rect)
+        self.image.blit(self.armour_bar, self.armour_bar_rect)
+        self.image.blit(info, info_rect)
+    
+    def draw_MP(self):
+        self.mana_background.fill(DARK_BROWN)
+        self.mana_bar = pygame.Surface((128 * self.game.player.mana / self.game.player.max_mana, 20))
+        info = self.font.render(f"{self.game.player.mana}/{self.game.player.max_mana}", True, WHITE)
+        info_rect = info.get_rect()
+        info_rect.center = self.mana_bar_rect.center
+        self.mana_bar.fill(BLUE)
+        self.image.blit(self.mana_background, self.mana_bar_rect)
+        self.image.blit(self.mana_bar, self.mana_bar_rect)
+        self.image.blit(info, info_rect)

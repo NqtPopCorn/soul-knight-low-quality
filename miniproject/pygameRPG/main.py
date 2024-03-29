@@ -36,9 +36,10 @@ class Game:
         self.terrain_spritesheet = Spritesheet('miniproject/pygameRPG/img/terrain.png')
         self.enemy_spritesheet = Spritesheet('miniproject/pygameRPG/img/enemy.png')
         self.attack_spritesheet = Spritesheet('miniproject/pygameRPG/img/attack.png')
-        self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
         self.intro_background = pygame.image.load('miniproject/pygameRPG/img/introbackground.png')
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
+        self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
+        self.ak47_spritesheet = Spritesheet('miniproject/pygameRPG/img/AK47-SpriteSheet.png')
 
         self.t1 = pygame.time.get_ticks()
 
@@ -56,6 +57,9 @@ class Game:
         self.bullets = pygame.sprite.LayeredUpdates()
         self.guns = pygame.sprite.LayeredUpdates()
         self.entrances = pygame.sprite.LayeredUpdates()
+        #player health and armor bar
+        self.bars = pygame.sprite.LayeredUpdates()
+        PlayerBars(self)
         self.create_tilemap()
 
     def events(self):
@@ -82,11 +86,14 @@ class Game:
 
     def update(self):
         self.all_sprites.update()
+        self.bars.update()
         
     def draw(self):
         #game loop draw
         self.screen.fill(BLACK)
         self.all_sprites.draw(self.screen)
+        #draw health and armor bar
+        self.bars.draw(self.screen)
         self.clock.tick(FPS)
         pygame.display.update()
 
