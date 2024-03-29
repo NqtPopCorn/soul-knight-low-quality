@@ -17,6 +17,7 @@ class Spritesheet:
 class Player(pygame.sprite.Sprite):
     def __init__(self, game, x, y, others):
         self.game = game
+        # game.player = self 
         self._layer = PLAYER_LAYER
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
@@ -49,15 +50,37 @@ class Player(pygame.sprite.Sprite):
         
         self.rad = 0
         self.score = 0
-        self.HP = 5
+
         self.max_hp = 5
-        self.armour = 3
         self.max_armour = 3
-        self.mana = 128
         self.max_mana = 128
+
+        self.HP = self.max_hp
+        self.armour = self.max_armour
+        self.mana = self.max_mana
+        
         self.timer_hit = 0
         self.timer_armour = 0
         self.timer_attack = 0
+        self.weapons = []
+        self.weapon = None
+
+    def set_weapons(self, weapons = None):
+        if weapons == None:
+            self.weapons = ["glock", "ak47"]
+            self.change_weapon(0)
+        else:
+            self.weapons = weapons
+            self.change_weapon(0)
+
+    def change_weapon(self, index):
+        if self.weapons[index] == None: return False
+        if self.weapons[index] == "glock":
+            if self.weapon: self.weapon.kill()
+            self.weapon = Glock(self.game)
+        if self.weapons[index] == "ak47":
+            if self.weapon: self.weapon.kill()
+            self.weapon = AK47(self.game)
 
     def update(self):
         self.movement()
@@ -90,7 +113,7 @@ class Player(pygame.sprite.Sprite):
                 for attack in self.game.attacks:
                     attack.rect.x -= PLAYER_SPEED
             self.x_change = -PLAYER_SPEED
-            if self.game.player_weapon.find_nearest_enemy() == None: self.facing = "left"
+            if self.game.player.weapon.find_nearest_enemy() == None: self.facing = "left"
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             if(self.rect.centerx > WIN_WIDTH/2 - CAMERA_SIZE):
                 for sprite in self.game.all_sprites:
@@ -98,7 +121,7 @@ class Player(pygame.sprite.Sprite):
                 for attack in self.game.attacks:
                     attack.rect.x += PLAYER_SPEED
             self.x_change = PLAYER_SPEED
-            if self.game.player_weapon.find_nearest_enemy() == None: self.facing = "right"
+            if self.game.player.weapon.find_nearest_enemy() == None: self.facing = "right"
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             if(self.rect.centery < WIN_HEIGHT/2 + CAMERA_SIZE):
                 for sprite in self.game.all_sprites:
@@ -120,14 +143,12 @@ class Player(pygame.sprite.Sprite):
             if pygame.time.get_ticks() - self.timer_hit > 500:
                 if(self.armour > 0):
                     self.armour -= 1
-                    self.timer_attack = pygame.time.get_ticks()
                 else:
                     self.HP -= 1
+                self.timer_attack = pygame.time.get_ticks()
                 self.timer_hit = pygame.time.get_ticks()
                 if(self.HP <= 0):
                     self.game.playing = False
-
-                
 
     def collide_blocks(self, dir):
         if (dir == "x"):
@@ -613,6 +634,31 @@ class AK47(Gun):
         self.place_right = (6, 4)
         self.headpos = (48, 4)
 
+class Entrance(pygame.sprite.Sprite):
+    def __init__(self, game, x, y, others):
+        self.enable = True
+        self.game = game
+        self._layer = BLOCK_LAYER
+        self.groups = self.game.all_sprites, self.game.entrances, self.game.blocks
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
+        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
+        self.width = TILE_SIZE
+        self.height = TILE_SIZE
+
+        self.image = self.game.terrain_spritesheet.get_sprite(384, 576, self.width, self.height)
+
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+
+    def update(self):
+        if(self.enable): 
+            self.image = self.game.terrain_spritesheet.get_sprite(704, 160, self.width, self.height)
+        else:
+            self.image = self.game.terrain_spritesheet.get_sprite(95, 576, self.width, self.height)
+
 class Button:
     def __init__(self, x, y, width, height, fg, bg, content, fontsize):
         self.font = pygame.font.Font('miniproject/pygameRPG/Arial.ttf', fontsize)
@@ -707,31 +753,6 @@ class MyMap(pygame.sprite.Sprite):
         self.image = pygame.Surface((WIN_WIDTH - TILE_SIZE*2, WIN_HEIGHT - TILE_SIZE*2))
         self.rect = self.image.get_rect()
         self.rect.topleft = ( 32 + self.mappingpos[0] * WIN_WIDTH, 32 + self.mappingpos[1] * WIN_HEIGHT)
-
-class Entrance(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others):
-        self.enable = True
-        self.game = game
-        self._layer = BLOCK_LAYER
-        self.groups = self.game.all_sprites, self.game.entrances, self.game.blocks
-        pygame.sprite.Sprite.__init__(self, self.groups)
-
-        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
-        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
-        self.width = TILE_SIZE
-        self.height = TILE_SIZE
-
-        self.image = self.game.terrain_spritesheet.get_sprite(384, 576, self.width, self.height)
-
-        self.rect = self.image.get_rect()
-        self.rect.x = self.x
-        self.rect.y = self.y
-
-    def update(self):
-        if(self.enable): 
-            self.image = self.game.terrain_spritesheet.get_sprite(704, 160, self.width, self.height)
-        else:
-            self.image = self.game.terrain_spritesheet.get_sprite(95, 576, self.width, self.height)
         
 class MapList:
     def __init__(self, tilemaps, game):
@@ -787,7 +808,7 @@ def create_tilemap(game, tilemap, mappingpos, mymap: MyMap = None):
                     mymap.enemy_sprites.add(enemy)
             if col == 'P':
                 game.player = Player(game, j, i, mappingpos)
-                game.player_weapon = AK47(game)
+                game.player.set_weapons()
             if(col == ' '): continue
             Ground(game, j, i, mappingpos)
 

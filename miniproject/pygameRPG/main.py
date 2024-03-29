@@ -42,6 +42,7 @@ class Game:
         self.ak47_spritesheet = Spritesheet('miniproject/pygameRPG/img/AK47-SpriteSheet.png')
 
         self.t1 = pygame.time.get_ticks()
+        self.player: Player = None
 
     def create_tilemap(self):
         self.maps = MapList(tilemaps, self)
@@ -59,8 +60,9 @@ class Game:
         self.entrances = pygame.sprite.LayeredUpdates()
         #player health and armor bar
         self.bars = pygame.sprite.LayeredUpdates()
-        PlayerBars(self)
         self.create_tilemap()
+        PlayerBars(self)
+        
 
     def events(self):
         #game loop events
@@ -78,10 +80,14 @@ class Game:
                         Attack(self, self.player.rect.x, self.player.rect.y - 32)
                     if self.player.facing == 'down':
                         Attack(self, self.player.rect.x, self.player.rect.y + 32)
+                if event.key == pygame.K_1:
+                    self.player.change_weapon(0)
+                elif event.key == pygame.K_2:
+                    self.player.change_weapon(1)
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1 and self.player_weapon.can_shoot():
+                if event.button == 1 and self.player.weapon != None and self.player.weapon.can_shoot():
                     self.player.attacking = True
-                    self.player_weapon.shoot()
+                    self.player.weapon.shoot()
                 pass
 
     def update(self):
