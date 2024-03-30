@@ -40,6 +40,7 @@ class Game:
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
         self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
         self.ak47_spritesheet = Spritesheet('miniproject/pygameRPG/img/AK47-SpriteSheet.png')
+        self.sniper_spritesheet = Spritesheet('miniproject/pygameRPG/img/SniperRifle-SpriteSheet.png')
 
         self.t1 = pygame.time.get_ticks()
         self.player: Player = None
@@ -62,7 +63,6 @@ class Game:
         self.bars = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
         PlayerBars(self)
-        
 
     def events(self):
         #game loop events
@@ -84,6 +84,8 @@ class Game:
                     self.player.change_weapon(0)
                 elif event.key == pygame.K_2:
                     self.player.change_weapon(1)
+                elif event.key == pygame.K_3:
+                    self.player.change_weapon(2)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1 and self.player.weapon != None and self.player.weapon.can_shoot():
                     self.player.attacking = True

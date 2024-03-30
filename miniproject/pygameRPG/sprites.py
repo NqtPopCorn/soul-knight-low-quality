@@ -67,7 +67,7 @@ class Player(pygame.sprite.Sprite):
 
     def set_weapons(self, weapons = None):
         if weapons == None:
-            self.weapons = ["glock", "ak47"]
+            self.weapons = ["glock","ak47","sniper"]
             self.change_weapon(0)
         else:
             self.weapons = weapons
@@ -81,6 +81,9 @@ class Player(pygame.sprite.Sprite):
         if self.weapons[index] == "ak47":
             if self.weapon: self.weapon.kill()
             self.weapon = AK47(self.game)
+        if self.weapons[index] == "sniper":
+            if self.weapon: self.weapon.kill()
+            self.weapon = Sniper(self.game)
 
     def update(self):
         self.movement()
@@ -189,7 +192,7 @@ class Player(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others):
+    def __init__(self, game, x, y, others, room):
         self.game = game
         self._layer = ENERMY_LAYER
         self.groups = self.game.all_sprites, self.game.enemies
@@ -232,6 +235,7 @@ class Enemy(pygame.sprite.Sprite):
                             self.game.enemy_spritesheet.get_sprite(67, 98, self.width, self.height)]
     
         self.HP = 3
+        self.room = room
 
     def normal_movement(self):
         if self.facing == "up":
@@ -261,7 +265,6 @@ class Enemy(pygame.sprite.Sprite):
             self.max_travel = random.randint(30, 60)
         pass
 
-            
     def update(self):
         self.movement()
         self.collide_bullet()
@@ -324,32 +327,39 @@ class Enemy(pygame.sprite.Sprite):
     def collide_bullet(self):
         hits = pygame.sprite.spritecollide(self, self.game.bullets, False)
         if hits:
-            self.HP -= 1
+            self.HP -= hits[0].dmg
             hits[0].kill()
             if self.HP <= 0:
                 self.kill()
                 self.game.player.score += 1
+                if self.game.player.mana <= self.game.player.max_mana - 10:
+                    self.game.player.mana += 10
+                else :
+                    self.game.player.mana = self.game.player.max_mana
 
     def movement(self):
-        if(math.sqrt((self.game.player.rect.x - self.rect.x)**2 + (self.game.player.rect.y - self.rect.y)**2) > ENEMY_SCOPE):
-            self.normal_movement()
+        if(math.sqrt((self.game.player.rect.x - self.rect.x)**2 + (self.game.player.rect.y - self.rect.y)**2) < ENEMY_SCOPE and self.room.open == False):
+            self.taunted_movement()
         else:
-            dx = self.game.player.rect.centerx - self.rect.centerx
-            dy = self.game.player.rect.centery - self.rect.centery
-            self.rad = round(math.atan2(dy, dx),2)
-            self.x_change = ENEMY_SPEED * math.cos(self.rad)
-            self.y_change = ENEMY_SPEED * math.sin(self.rad)
-            #facing update
-            if abs(dx) > abs(dy):
-                if dx > 0:
-                    self.facing = "right"
-                else:
-                    self.facing = "left"
+            self.normal_movement()
+
+    def taunted_movement(self):
+        dx = self.game.player.rect.centerx - self.rect.centerx
+        dy = self.game.player.rect.centery - self.rect.centery
+        self.rad = round(math.atan2(dy, dx),2)
+        self.x_change = ENEMY_SPEED * math.cos(self.rad)
+        self.y_change = ENEMY_SPEED * math.sin(self.rad)
+        #facing update
+        if abs(dx) > abs(dy):
+            if dx > 0:
+                self.facing = "right"
             else:
-                if dy > 0:
-                    self.facing = "down"
-                else:
-                    self.facing = "up"
+                self.facing = "left"
+        else:
+            if dy > 0:
+                self.facing = "down"
+            else:
+                self.facing = "up"
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y, others):
@@ -458,9 +468,10 @@ class Attack(pygame.sprite.Sprite):
     #end
 #end           
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, game, heading, rad):
+    def __init__(self, game, heading, rad, dmg, rad_offset):
         self._layer = BULLET_LAYER
         self.game = game
+        self.dmg = dmg
         self.x = heading[0]
         self.y = heading[1]
         self.width = 10
@@ -479,9 +490,9 @@ class Bullet(pygame.sprite.Sprite):
 
         self.x_change = 0
         self.y_change = 0
-        self.rad = rad + random.randint(-3, 3) * math.pi/180
+        self.rad = rad + random.randint(-abs(rad_offset), abs(rad_offset)) * math.pi/180
         self.max_travel = WIN_WIDTH
-
+        
     def movement(self):
         self.rect.x += BULLET_SPEED * math.cos(self.rad)
         self.rect.y += BULLET_SPEED * math.sin(self.rad)
@@ -552,11 +563,12 @@ class Gun(pygame.sprite.Sprite):
         return (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad >= math.pi/2 and  self.rad <= math.pi)
     
     def shoot(self):
-        Bullet(self.game, self.find_heading(), self.rad)
+        Bullet(self.game, self.find_heading(), self.rad, self.bullet_dmg, self.rad_offset)
+        self.game.player.mana -= self.manacost
 
     def can_shoot(self):
         now = pygame.time.get_ticks()
-        if now - self.timer > self.delay:
+        if now - self.timer > self.delay and self.game.player.mana >= self.manacost:
             self.timer = now
             return True
         return False
@@ -598,10 +610,13 @@ class Glock(Gun):
         self.rad = self.game.player.rad
         self.scope = GLOCK_SCOPE
         self.delay = GLOCK_DELAY
+        self.bullet_dmg = 1
+        self.rad_offset = 3
 
         #pos against player to place gun when facing right
         self.place_right = (8, 6)
         self.headpos = (40, 8)
+        self.manacost = 0
 
 class AK47(Gun):
     def __init__(self, game):
@@ -629,10 +644,46 @@ class AK47(Gun):
         self.rad = self.game.player.rad
         self.scope = AK47_SCOPE
         self.delay = AK47_DELAY
-
+        self.bullet_dmg = 1
+        self.rad_offset = 4
         #pos against player to place gun when facing right
         self.place_right = (6, 4)
         self.headpos = (48, 4)
+        self.manacost = 2
+
+class Sniper(Gun):
+    def __init__(self, game):
+        self._layer = GUN_LAYER
+        self.game = game
+        self.x = self.game.player.rect.centerx
+        self.y = self.game.player.rect.centery
+        self.width = 80
+        self.height = 32
+        self.groups = self.game.all_sprites, self.game.guns
+        pygame.sprite.Sprite.__init__(self, self.groups)
+
+        self.animation_loop = 0
+        self.image = self.game.sniper_spritesheet.get_sprite(0, 0, self.width, self.height)
+
+        self.rect = self.image.get_rect()
+        self.rect.center = (self.x, self.y)
+
+        self.shoot_animation = [self.game.sniper_spritesheet.get_sprite(0, 0, self.width, self.height),
+                            self.game.sniper_spritesheet.get_sprite(80, 0, self.width, self.height),
+                            self.game.sniper_spritesheet.get_sprite(160, 0, self.width, self.height),
+                            self.game.sniper_spritesheet.get_sprite(240, 0, self.width, self.height),
+                            self.game.sniper_spritesheet.get_sprite(320, 0, self.width, self.height)]
+        
+        self.timer = 0
+        self.rad = self.game.player.rad
+        self.scope = SNIPER_SCOPE
+        self.delay = SNIPER_DELAY
+        self.bullet_dmg = 3
+        self.rad_offset = 1
+        #pos against player to place gun when facing right
+        self.place_right = (8, 4)
+        self.headpos = (48, 6)
+        self.manacost = 5
 
 class Entrance(pygame.sprite.Sprite):
     def __init__(self, game, x, y, others):
@@ -745,9 +796,11 @@ class MyMap(pygame.sprite.Sprite):
         if self.rect.contains(self.game.player.rect) and self.num_enemies > 0:
             for sprite in self.entrances:
                 sprite.enable = True
+            self.open = False
         else:
             for sprite in self.entrances:
                 sprite.enable = False
+            self.open = True
 
     def update_rect(self):
         self.image = pygame.Surface((WIN_WIDTH - TILE_SIZE*2, WIN_HEIGHT - TILE_SIZE*2))
@@ -803,8 +856,8 @@ def create_tilemap(game, tilemap, mappingpos, mymap: MyMap = None):
                     mymap.entrances.add(sprite)
                 else: block = Block(game, j, i, mappingpos)
             if col == 'E':
-                enemy = Enemy(game, j, i, mappingpos)
                 if(mymap != None):
+                    enemy = Enemy(game, j, i, mappingpos, mymap)
                     mymap.enemy_sprites.add(enemy)
             if col == 'P':
                 game.player = Player(game, j, i, mappingpos)
