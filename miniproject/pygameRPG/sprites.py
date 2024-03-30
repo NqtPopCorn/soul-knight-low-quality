@@ -15,15 +15,15 @@ class Spritesheet:
         return sprite
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others):
+    def __init__(self, game, x, y, mapx, mapy):
         self.game = game
         # game.player = self 
         self._layer = PLAYER_LAYER
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH) 
-        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT) 
+        self.x =  mapx + x * TILE_SIZE
+        self.y = mapy + y * TILE_SIZE
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -192,14 +192,14 @@ class Player(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others, room):
+    def __init__(self, game, x, y, mapx, mapy, map):
         self.game = game
         self._layer = ENERMY_LAYER
         self.groups = self.game.all_sprites, self.game.enemies
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
-        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
+        self.x = mapx + x * TILE_SIZE
+        self.y = mapy + y * TILE_SIZE
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -235,7 +235,7 @@ class Enemy(pygame.sprite.Sprite):
                             self.game.enemy_spritesheet.get_sprite(67, 98, self.width, self.height)]
     
         self.HP = 3
-        self.room = room
+        self.room = map
 
     def normal_movement(self):
         if self.facing == "up":
@@ -362,15 +362,15 @@ class Enemy(pygame.sprite.Sprite):
                 self.facing = "up"
 
 class Block(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others):
+    def __init__(self, game, x, y, mapx, mapy):
 
         self.game = game
         self._layer = BLOCK_LAYER
         self.groups = self.game.all_sprites, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
-        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
+        self.x = mapx + x * TILE_SIZE
+        self.y = mapy + y * TILE_SIZE
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -382,14 +382,14 @@ class Block(pygame.sprite.Sprite):
 
 
 class Ground(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others):
+    def __init__(self, game, x, y, mapx, mapy):
         self.game = game
         self._layer = GROUND_LAYER
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
-        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
+        self.x = mapx + x * TILE_SIZE
+        self.y = mapy + y * TILE_SIZE
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -686,15 +686,15 @@ class Sniper(Gun):
         self.manacost = 5
 
 class Entrance(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, others):
+    def __init__(self, game, x, y, mapx, mapy):
         self.enable = True
         self.game = game
         self._layer = BLOCK_LAYER
         self.groups = self.game.all_sprites, self.game.entrances, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
 
-        self.x = x * TILE_SIZE + (others[0] * WIN_WIDTH)
-        self.y = y * TILE_SIZE + (others[1] * WIN_HEIGHT)
+        self.x = mapx + x * TILE_SIZE
+        self.y = mapy + y * TILE_SIZE
         self.width = TILE_SIZE
         self.height = TILE_SIZE
 
@@ -741,37 +741,28 @@ class MyMap(pygame.sprite.Sprite):
     def __init__(self, tilemap, game):
         self._layer = MAP_LAYER
         self.mappingpos = [0, 0]
+        self.update_rect()
         self.tilemap = tilemap
         self.isDrawn = False
         self.game = game
+
         self.top = None
         self.bottom = None
         self.left = None
         self.right = None
+
         self.num_enemies = 0
         self.groups = self.game.all_sprites
         pygame.sprite.Sprite.__init__(self, self.groups)
         self.entrances = pygame.sprite.Group()
-        self.enemy_sprites = pygame.sprite.Group()
-        
+        self.enemies = pygame.sprite.Group()
+        self.open = True
+        self.remaining_phase = 1
+        self.enemies_pos = []
+
     def draw(self):
-        create_tilemap(self.game, self.tilemap, self.mappingpos, self)
+        self.create_tilemap()
         self.isDrawn = True
-        self.draw_pipes()
-         
-    def draw_pipes(self):
-        if(self.top != None):
-            pipe_mapping_pos = [self.mappingpos[0], self.mappingpos[1] - 1]
-            create_tilemap(self.game, vpipemap, pipe_mapping_pos)
-        if(self.bottom != None):
-            pipe_mapping_pos = [self.mappingpos[0], self.mappingpos[1] + 1]
-            create_tilemap(self.game, vpipemap, pipe_mapping_pos)
-        if(self.left != None):
-            pipe_mapping_pos = [self.mappingpos[0] - 1, self.mappingpos[1]]
-            create_tilemap(self.game, hpipemap, pipe_mapping_pos)
-        if(self.right != None):
-            pipe_mapping_pos = [self.mappingpos[0] + 1, self.mappingpos[1]]
-            create_tilemap(self.game, hpipemap, pipe_mapping_pos)
 
     def checkEntrance(self, i, j):
         if(self.top != None):
@@ -789,27 +780,59 @@ class MyMap(pygame.sprite.Sprite):
         return False
 
     def update(self):
-        count  = 0
-        for sprite in self.enemy_sprites:
-            if sprite.HP > 0: count += 1
-        self.num_enemies = count
-        if self.rect.contains(self.game.player.rect) and self.num_enemies > 0:
-            for sprite in self.entrances:
-                sprite.enable = True
+        self.update_phase()
+        if self.rect.contains(self.game.player.rect) and self.enemies:
+            for entrance in self.entrances:
+                entrance.enable = True
             self.open = False
         else:
-            for sprite in self.entrances:
-                sprite.enable = False
+            for entrance in self.entrances:
+                entrance.enable = False
             self.open = True
 
+    def update_phase(self):
+        #get num enemy in self.enemies
+        num_enemies = len(self.enemies.sprites())
+
+        if( num_enemies == 0 and self.remaining_phase > 0):
+            self.remaining_phase -= 1
+            for pos in self.enemies_pos:
+                enemy = Enemy(self.game, pos[0], pos[1], self.rect.x-32, self.rect.y-32, self)
+                self.enemies.add(enemy)
+         
+
     def update_rect(self):
+        #start position of the map including the border
+        self.x = self.mappingpos[0] * WIN_WIDTH
+        self.y = self.mappingpos[1] * WIN_HEIGHT
+        #display a invisible rect to check if player is in the map, it not include the border(32 pixels block)
         self.image = pygame.Surface((WIN_WIDTH - TILE_SIZE*2, WIN_HEIGHT - TILE_SIZE*2))
         self.rect = self.image.get_rect()
         self.rect.topleft = ( 32 + self.mappingpos[0] * WIN_WIDTH, 32 + self.mappingpos[1] * WIN_HEIGHT)
         
+    def create_tilemap(self):
+        for i, row in enumerate(self.tilemap):
+            for j, col in enumerate(row):
+                if col == 'B':
+                    if(self.checkEntrance(i, j)):
+                        sprite = Entrance(self.game, j, i, self.x, self.y)
+                        self.entrances.add(sprite)
+                    else: Block(self.game, j, i, self.x, self.y)
+                if col == 'E':
+                    enemy = Enemy(self.game, j, i, self.x, self.y, self)
+                    self.enemies.add(enemy)
+                    self.enemies_pos.append([j, i])
+                if col == 'P':
+                    self.game.player = Player(self.game, j, i, self.x, self.y)
+                    self.game.player.set_weapons()
+                if(col == ' '): continue
+                Ground(self.game, j, i, self.x, self.y)
+        
 class MapList:
     def __init__(self, tilemaps, game):
         self.maps = []
+        self.pipes = []
+        self.game = game
         for tilemap in tilemaps:
             self.maps.append(MyMap(tilemap, game))
 
@@ -817,9 +840,6 @@ class MapList:
         self.link(self.maps[1], self.maps[2], "top")
         self.link(self.maps[1], self.maps[3], "bottom")
 
-        for map in self.maps:
-            map.update_rect()
-        
     def draw(self):
         self.DFS_draw(self.maps[0])
 
@@ -830,40 +850,44 @@ class MapList:
                 self.DFS_draw(adj)
 
     def link(self, m1, m2, dir):
-        if(dir == "right"):
-            m1.right = m2
-            m2.left = m1
-            m2.mappingpos = [m1.mappingpos[0] + 2, m1.mappingpos[1]]
-        if(dir == "left"):
-            m1.left = m2
-            m2.right = m1
-            m2.mappingpos = [m1.mappingpos[0] - 2, m1.mappingpos[1]]
-        if(dir == "top"):
-            m1.top = m2
-            m2.bottom = m1
-            m2.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] - 2]
-        if(dir == "bottom"):
-            m1.bottom = m2
-            m2.top = m1
-            m2.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] + 2]
+        pipe = MyMap(hpipemap, self.game)
+        self.pipes.append(pipe)
 
-def create_tilemap(game, tilemap, mappingpos, mymap: MyMap = None):
-    for i, row in enumerate(tilemap):
-        for j, col in enumerate(row):
-            if col == 'B':
-                if(mymap != None and mymap.checkEntrance(i, j)):
-                    sprite = Entrance(game, j, i, mappingpos)
-                    mymap.entrances.add(sprite)
-                else: block = Block(game, j, i, mappingpos)
-            if col == 'E':
-                if(mymap != None):
-                    enemy = Enemy(game, j, i, mappingpos, mymap)
-                    mymap.enemy_sprites.add(enemy)
-            if col == 'P':
-                game.player = Player(game, j, i, mappingpos)
-                game.player.set_weapons()
-            if(col == ' '): continue
-            Ground(game, j, i, mappingpos)
+        if(dir == "right"):
+            pipe.tilemap = hpipemap
+            m1.right = pipe
+            pipe.right = m2
+            m2.left = pipe
+            m2.mappingpos = [m1.mappingpos[0] + 2, m1.mappingpos[1]]
+            pipe.mappingpos = [m1.mappingpos[0] + 1, m1.mappingpos[1]]
+            m1.update_rect()
+            m2.update_rect()
+            pipe.update_rect()
+        if(dir == "left"):
+            pipe.tilemap = hpipemap
+            m1.left = pipe
+            pipe.left = m2
+            m2.right = pipe
+            m2.mappingpos = [m1.mappingpos[0] - 2, m1.mappingpos[1]]
+            pipe.mappingpos = [m1.mappingpos[0] - 1, m1.mappingpos[1]]
+        if(dir == "top"):
+            pipe.tilemap = vpipemap
+            m1.top = pipe
+            pipe.top = m2
+            m2.bottom = pipe
+            m2.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] - 2]
+            pipe.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] - 1]
+        if(dir == "bottom"):
+            pipe.tilemap = vpipemap
+            m1.bottom = pipe
+            pipe.bottom = m2
+            m2.top = pipe
+            m2.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] + 2]
+            pipe.mappingpos = [m1.mappingpos[0], m1.mappingpos[1] + 1]
+
+        m1.update_rect()
+        m2.update_rect()
+        pipe.update_rect()
 
 class PlayerBars(pygame.sprite.Sprite):
     def __init__(self, game):
