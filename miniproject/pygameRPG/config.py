@@ -1,6 +1,6 @@
 WIN_WIDTH = 640
 WIN_HEIGHT = 480
-
+#just a comment
 CAMERA_SIZE = 16
 TILE_SIZE = 32
 
