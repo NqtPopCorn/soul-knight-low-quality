@@ -36,11 +36,14 @@ class Game:
         self.terrain_spritesheet = Spritesheet('miniproject/pygameRPG/img/terrain.png')
         self.enemy_spritesheet = Spritesheet('miniproject/pygameRPG/img/enemy.png')
         self.attack_spritesheet = Spritesheet('miniproject/pygameRPG/img/attack.png')
-        self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
         self.intro_background = pygame.image.load('miniproject/pygameRPG/img/introbackground.png')
         self.gameover_background = pygame.image.load('miniproject/pygameRPG/img/gameover.png')
+        self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
+        self.ak47_spritesheet = Spritesheet('miniproject/pygameRPG/img/AK47-SpriteSheet.png')
+        self.sniper_spritesheet = Spritesheet('miniproject/pygameRPG/img/SniperRifle-SpriteSheet.png')
 
         self.t1 = pygame.time.get_ticks()
+        self.player: Player = None
 
     def create_tilemap(self):
         self.maps = MapList(tilemaps, self)
@@ -56,7 +59,10 @@ class Game:
         self.bullets = pygame.sprite.LayeredUpdates()
         self.guns = pygame.sprite.LayeredUpdates()
         self.entrances = pygame.sprite.LayeredUpdates()
+        #player health and armor bar
+        self.bars = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
+        PlayerBars(self)
 
     def events(self):
         #game loop events
@@ -74,19 +80,28 @@ class Game:
                         Attack(self, self.player.rect.x, self.player.rect.y - 32)
                     if self.player.facing == 'down':
                         Attack(self, self.player.rect.x, self.player.rect.y + 32)
+                if event.key == pygame.K_1:
+                    self.player.change_weapon(0)
+                elif event.key == pygame.K_2:
+                    self.player.change_weapon(1)
+                elif event.key == pygame.K_3:
+                    self.player.change_weapon(2)
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1 and self.player_weapon.can_shoot():
+                if event.button == 1 and self.player.weapon != None and self.player.weapon.can_shoot():
                     self.player.attacking = True
-                    self.player_weapon.shoot()
+                    self.player.weapon.shoot()
                 pass
 
     def update(self):
         self.all_sprites.update()
+        self.bars.update()
         
     def draw(self):
         #game loop draw
         self.screen.fill(BLACK)
         self.all_sprites.draw(self.screen)
+        #draw health and armor bar
+        self.bars.draw(self.screen)
         self.clock.tick(FPS)
         pygame.display.update()
 
