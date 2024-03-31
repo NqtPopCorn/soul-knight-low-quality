@@ -110,6 +110,8 @@ class Game:
         while(self.playing):
             self.events()
             self.update()
+            if self.maps.check_win():
+                self.playing = False
             self.draw()
 
     def gameover(self):
@@ -135,6 +137,33 @@ class Game:
             self.screen.blit(self.gameover_background, (0,0))
             self.screen.blit(text, text_rect)
             self.screen.blit(restart_button.image, restart_button.rect)
+            self.clock.tick(FPS)
+            pygame.display.update()
+        pass
+
+    def win_screen(self):
+        intro = True
+        title = self.font.render('Pygame RPG', True, BLACK)
+        title_rect = title.get_rect(x=10,y=10)
+        text = self.font.render('You win!!!', True, BLUE)
+        text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
+
+        play_button = Button(10, 50, 120, 50, WHITE, GREY,'Play', 32)
+        while(intro):
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    intro = False
+            
+            mouse_pos = pygame.mouse.get_pos()
+            mouse_pressed = pygame.mouse.get_pressed()
+            if play_button.isPressed(mouse_pos, mouse_pressed):
+                intro = False
+
+            self.screen.blit(self.intro_background, (0,0))
+            self.screen.blit(title, title_rect)
+            self.screen.blit(play_button.image, play_button.rect)
+            self.screen.blit(text, text_rect)
             self.clock.tick(FPS)
             pygame.display.update()
         pass
@@ -171,7 +200,9 @@ def main():
     g.new()
     while(g.running):
         g.main()
-        g.gameover()
+        if g.maps.check_win():
+            g.win_screen()
+        else: g.gameover()
 
     pygame.quit()
     sys.exit()

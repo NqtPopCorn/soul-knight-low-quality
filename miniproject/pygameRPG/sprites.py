@@ -143,7 +143,7 @@ class Player(pygame.sprite.Sprite):
     def collide_enemy(self):
         hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
         if hits:
-            if pygame.time.get_ticks() - self.timer_hit > 500:
+            if pygame.time.get_ticks() - self.timer_hit > 800:
                 if(self.armour > 0):
                     self.armour -= 1
                 else:
@@ -468,7 +468,7 @@ class Attack(pygame.sprite.Sprite):
     #end
 #end           
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, game, heading, rad, dmg, rad_offset):
+    def __init__(self, game, heading, rad, dmg, rad_offset, speed):
         self._layer = BULLET_LAYER
         self.game = game
         self.dmg = dmg
@@ -492,11 +492,12 @@ class Bullet(pygame.sprite.Sprite):
         self.y_change = 0
         self.rad = rad + random.randint(-abs(rad_offset), abs(rad_offset)) * math.pi/180
         self.max_travel = WIN_WIDTH
+        self.speed = speed
         
     def movement(self):
-        self.rect.x += BULLET_SPEED * math.cos(self.rad)
-        self.rect.y += BULLET_SPEED * math.sin(self.rad)
-        self.max_travel -= BULLET_SPEED
+        self.rect.x += self.speed * math.cos(self.rad)
+        self.rect.y += self.speed * math.sin(self.rad)
+        self.max_travel -= self.speed
         if self.max_travel <= 0:
             self.kill()
 
@@ -563,7 +564,7 @@ class Gun(pygame.sprite.Sprite):
         return (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad >= math.pi/2 and  self.rad <= math.pi)
     
     def shoot(self):
-        Bullet(self.game, self.find_heading(), self.rad, self.bullet_dmg, self.rad_offset)
+        Bullet(self.game, self.find_heading(), self.rad, self.bullet_dmg, self.rad_offset, self.speed)
         self.game.player.mana -= self.manacost
 
     def can_shoot(self):
@@ -617,6 +618,7 @@ class Glock(Gun):
         self.place_right = (8, 6)
         self.headpos = (40, 8)
         self.manacost = 0
+        self.speed = GLOCK_BULLET_SPEED
 
 class AK47(Gun):
     def __init__(self, game):
@@ -650,6 +652,7 @@ class AK47(Gun):
         self.place_right = (6, 4)
         self.headpos = (48, 4)
         self.manacost = 2
+        self.speed = AK47_BULLET_SPEED
 
 class Sniper(Gun):
     def __init__(self, game):
@@ -679,11 +682,12 @@ class Sniper(Gun):
         self.scope = SNIPER_SCOPE
         self.delay = SNIPER_DELAY
         self.bullet_dmg = 3
-        self.rad_offset = 1
+        self.rad_offset = 0
         #pos against player to place gun when facing right
         self.place_right = (8, 4)
         self.headpos = (48, 6)
         self.manacost = 5
+        self.speed = SNIPER_BULLET_SPEED
 
 class Entrance(pygame.sprite.Sprite):
     def __init__(self, game, x, y, mapx, mapy):
@@ -738,13 +742,18 @@ class Button:
         return False
     
 class MyMap(pygame.sprite.Sprite): 
-    def __init__(self, tilemap, game):
+    def __init__(self, tilemap, game, phase_num = 0):
         self._layer = MAP_LAYER
         self.mappingpos = [0, 0]
-        self.update_rect()
         self.tilemap = tilemap
         self.isDrawn = False
         self.game = game
+        #start position of the map including the border
+        self.x = 0
+        self.y = 0
+        #display a invisible rect to check if player is in the map, it not include the border(32 pixels block)
+        self.image = pygame.Surface((WIN_WIDTH - TILE_SIZE*2, WIN_HEIGHT - TILE_SIZE*2))
+        self.rect = self.image.get_rect()
 
         self.top = None
         self.bottom = None
@@ -757,8 +766,10 @@ class MyMap(pygame.sprite.Sprite):
         self.entrances = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.open = True
-        self.remaining_phase = 1
-        self.enemies_pos = []
+        self.max_phase = phase_num
+        self.current_phase = 1
+        self.available_pos = []
+        self.clear = False
 
     def draw(self):
         self.create_tilemap()
@@ -794,20 +805,20 @@ class MyMap(pygame.sprite.Sprite):
         #get num enemy in self.enemies
         num_enemies = len(self.enemies.sprites())
 
-        if( num_enemies == 0 and self.remaining_phase > 0):
-            self.remaining_phase -= 1
-            for pos in self.enemies_pos:
+        if(num_enemies == 0 and self.current_phase == self.max_phase):
+            self.clear = True
+        if( num_enemies == 0 and self.current_phase < self.max_phase):
+            self.current_phase += 1
+            #chon 5 vi tri random de tao enemy
+            enemies_pos = random.sample(self.available_pos, random.randint(2, 8))
+            for pos in enemies_pos:
                 enemy = Enemy(self.game, pos[0], pos[1], self.rect.x-32, self.rect.y-32, self)
                 self.enemies.add(enemy)
-         
 
     def update_rect(self):
         #start position of the map including the border
         self.x = self.mappingpos[0] * WIN_WIDTH
         self.y = self.mappingpos[1] * WIN_HEIGHT
-        #display a invisible rect to check if player is in the map, it not include the border(32 pixels block)
-        self.image = pygame.Surface((WIN_WIDTH - TILE_SIZE*2, WIN_HEIGHT - TILE_SIZE*2))
-        self.rect = self.image.get_rect()
         self.rect.topleft = ( 32 + self.mappingpos[0] * WIN_WIDTH, 32 + self.mappingpos[1] * WIN_HEIGHT)
         
     def create_tilemap(self):
@@ -821,10 +832,11 @@ class MyMap(pygame.sprite.Sprite):
                 if col == 'E':
                     enemy = Enemy(self.game, j, i, self.x, self.y, self)
                     self.enemies.add(enemy)
-                    self.enemies_pos.append([j, i])
                 if col == 'P':
                     self.game.player = Player(self.game, j, i, self.x, self.y)
                     self.game.player.set_weapons()
+                if col == 'E' or col == 'P' or col == '.':
+                    self.available_pos.append([j, i])
                 if(col == ' '): continue
                 Ground(self.game, j, i, self.x, self.y)
         
@@ -834,8 +846,9 @@ class MapList:
         self.pipes = []
         self.game = game
         for tilemap in tilemaps:
-            self.maps.append(MyMap(tilemap, game))
+            self.maps.append(MyMap(tilemap, game, 2))
 
+        self.maps[0].max_phase = 1
         self.link(self.maps[0], self.maps[1], "right")
         self.link(self.maps[1], self.maps[2], "top")
         self.link(self.maps[1], self.maps[3], "bottom")
@@ -889,6 +902,13 @@ class MapList:
         m2.update_rect()
         pipe.update_rect()
 
+    def check_win(self):
+        for map in self.maps:
+            if map.clear == False:
+                return False
+        return True
+
+#can toi uu do chay qua cham
 class PlayerBars(pygame.sprite.Sprite):
     def __init__(self, game):
         self._layer = UI_LAYER
@@ -902,14 +922,20 @@ class PlayerBars(pygame.sprite.Sprite):
         self.rect.x = 10
         self.rect.y = 10
 
-        self.health_background = pygame.Surface((128, 20))
-        self.health_background.fill(DARK_BROWN)
-        self.armour_background = pygame.Surface((128, 20))
-        self.armour_background.fill(DARK_BROWN)
-        self.mana_background = pygame.Surface((128, 20))
-        self.mana_background.fill(DARK_BROWN)
+        self.health_bg = pygame.Surface((128, 20))
+        self.health_bg.fill(DARK_BROWN)
+        self.armour_bg = pygame.Surface((128, 20))
+        self.armour_bg.fill(DARK_BROWN)
+        self.mana_bg = pygame.Surface((128, 20))
+        self.mana_bg.fill(DARK_BROWN)
 
-        #just a surface
+        self.health_bg_rect = self.health_bg.get_rect()
+        self.armour_bg_rect = self.armour_bg.get_rect()
+        self.mana_bg_rect = self.mana_bg.get_rect()
+        self.health_bg_rect.topleft = (42, 8)
+        self.armour_bg_rect.topleft = (42, 36)
+        self.mana_bg_rect.topleft = (42, 64)
+
         self.health_icon = pygame.Surface((20, 20))
         self.health_icon.fill(RED)
         self.armour_icon = pygame.Surface((20, 20))
@@ -919,32 +945,29 @@ class PlayerBars(pygame.sprite.Sprite):
         
         self.health_bar = pygame.Surface((128, 20))
         self.health_bar.fill(RED)
-        self.health_bar_rect = self.health_bar.get_rect()
-        self.health_bar_rect.x = 42
-        self.health_bar_rect.y = 8
-
         self.armour_bar = pygame.Surface((128, 20))
         self.armour_bar.fill(GREY)
-        self.armour_bar_rect = self.armour_bar.get_rect()
-        self.armour_bar_rect.x = 42
-        self.armour_bar_rect.y = 36
-
         self.mana_bar = pygame.Surface((128, 20))
         self.mana_bar.fill(BLUE)
+
+        self.health_bar_rect = self.health_bar.get_rect()
+        self.health_bar_rect.topleft = (0 ,0)
+        self.armour_bar_rect = self.armour_bar.get_rect()
+        self.armour_bar_rect.topleft = (0 ,0)
         self.mana_bar_rect = self.mana_bar.get_rect()
-        self.mana_bar_rect.x = 42
-        self.mana_bar_rect.y = 64
+        self.mana_bar_rect.topleft = (0 ,0)
         
+        self.health_bg.blit(self.health_bar, self.health_bar_rect)
+        self.armour_bg.blit(self.armour_bar, self.armour_bar_rect)
+        self.mana_bg.blit(self.mana_bar, self.mana_bar_rect)
+
         self.image.fill(BROWN)
-        self.image.blit(self.health_background, self.health_bar_rect)
-        self.image.blit(self.armour_background, self.armour_bar_rect)
-        self.image.blit(self.mana_background, self.mana_bar_rect)
+        self.image.blit(self.health_bg, self.health_bg_rect)
+        self.image.blit(self.armour_bg, self.armour_bg_rect)
+        self.image.blit(self.mana_bg, self.mana_bg_rect)
         self.image.blit(self.health_icon, (10, 8))
         self.image.blit(self.armour_icon, (10, 36))
         self.image.blit(self.mana_icon, (10, 64))
-        self.image.blit(self.health_bar, self.health_bar_rect)
-        self.image.blit(self.armour_bar, self.armour_bar_rect)
-        self.image.blit(self.mana_bar, self.mana_bar_rect)
         
     def update(self):
         self.draw_HP()
@@ -953,34 +976,31 @@ class PlayerBars(pygame.sprite.Sprite):
         pass
 
     def draw_HP(self):
-        self.health_background.fill(DARK_BROWN)
-        self.health_bar = pygame.Surface((128 * self.game.player.HP / self.game.player.max_hp, 20))
+        self.health_bg.fill(DARK_BROWN)
+        self.health_bar_rect.right = 128 * self.game.player.HP / self.game.player.max_hp
         info = self.font.render(f"{self.game.player.HP}/{self.game.player.max_hp}", True, WHITE)
         info_rect = info.get_rect()
-        info_rect.center = self.health_bar_rect.center
-        self.health_bar.fill(RED)
-        self.image.blit(self.health_background, self.health_bar_rect)
-        self.image.blit(self.health_bar, self.health_bar_rect)
+        info_rect.center = self.health_bg_rect.center
+        self.health_bg.blit(self.health_bar, self.health_bar_rect)
+        self.image.blit(self.health_bg, self.health_bg_rect)
         self.image.blit(info, info_rect)
     
     def draw_AR(self):
-        self.armour_background.fill(DARK_BROWN)
-        self.armour_bar = pygame.Surface((128 * self.game.player.armour / self.game.player.max_armour, 20))
+        self.armour_bg.fill(DARK_BROWN)
+        self.armour_bar_rect.right = 128 * self.game.player.armour / self.game.player.max_armour
         info = self.font.render(f"{self.game.player.armour}/{self.game.player.max_armour}", True, WHITE)
         info_rect = info.get_rect()
-        info_rect.center = self.armour_bar_rect.center
-        self.armour_bar.fill(GREY)
-        self.image.blit(self.armour_background,  self.armour_bar_rect)
-        self.image.blit(self.armour_bar, self.armour_bar_rect)
+        info_rect.center = self.armour_bg_rect.center
+        self.armour_bg.blit(self.armour_bar, self.armour_bar_rect)
+        self.image.blit(self.armour_bg,  self.armour_bg_rect)
         self.image.blit(info, info_rect)
     
     def draw_MP(self):
-        self.mana_background.fill(DARK_BROWN)
-        self.mana_bar = pygame.Surface((128 * self.game.player.mana / self.game.player.max_mana, 20))
+        self.mana_bg.fill(DARK_BROWN)
+        self.mana_bar_rect.right = 128 * self.game.player.mana / self.game.player.max_mana
         info = self.font.render(f"{self.game.player.mana}/{self.game.player.max_mana}", True, WHITE)
         info_rect = info.get_rect()
-        info_rect.center = self.mana_bar_rect.center
-        self.mana_bar.fill(BLUE)
-        self.image.blit(self.mana_background, self.mana_bar_rect)
-        self.image.blit(self.mana_bar, self.mana_bar_rect)
+        info_rect.center = self.mana_bg_rect.center
+        self.mana_bg.blit(self.mana_bar, self.mana_bar_rect)
+        self.image.blit(self.mana_bg, self.mana_bg_rect)
         self.image.blit(info, info_rect)
