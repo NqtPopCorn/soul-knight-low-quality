@@ -77,21 +77,19 @@ class Player(pygame.sprite.Sprite):
         if self.weapons[index] == None: return False
         if self.weapons[index] == "glock":
             if self.weapon: self.weapon.kill()
-            self.weapon = Glock(self.game)
+            self.weapon = Glock(self.game, self)
         if self.weapons[index] == "ak47":
             if self.weapon: self.weapon.kill()
-            self.weapon = AK47(self.game)
+            self.weapon = AK47(self.game, self)
         if self.weapons[index] == "sniper":
             if self.weapon: self.weapon.kill()
-            self.weapon = Sniper(self.game)
+            self.weapon = Sniper(self.game, self)
 
     def update(self):
         self.movement()
         self.animate()
+        self.find_nearest_enemy()
         self.collide_enemy()
-
-        if self.y_change != 0 or self.x_change != 0:
-            self.rad = math.atan2(self.y_change, self.x_change)
 
         self.rect.x += self.x_change
         self.collide_blocks("x")
@@ -116,7 +114,7 @@ class Player(pygame.sprite.Sprite):
                 for attack in self.game.attacks:
                     attack.rect.x -= PLAYER_SPEED
             self.x_change = -PLAYER_SPEED
-            if self.game.player.weapon.find_nearest_enemy() == None: self.facing = "left"
+            if self.find_nearest_enemy() == None: self.facing = "left"
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             if(self.rect.centerx > WIN_WIDTH/2 - CAMERA_SIZE):
                 for sprite in self.game.all_sprites:
@@ -124,7 +122,7 @@ class Player(pygame.sprite.Sprite):
                 for attack in self.game.attacks:
                     attack.rect.x += PLAYER_SPEED
             self.x_change = PLAYER_SPEED
-            if self.game.player.weapon.find_nearest_enemy() == None: self.facing = "right"
+            if self.find_nearest_enemy() == None: self.facing = "right"
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             if(self.rect.centery < WIN_HEIGHT/2 + CAMERA_SIZE):
                 for sprite in self.game.all_sprites:
@@ -154,34 +152,29 @@ class Player(pygame.sprite.Sprite):
                     self.game.playing = False
 
     def collide_blocks(self, dir):
-        if (dir == "x"):
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                if self.game.entrances.has(hits[0]) == False or hits[0].enable == True:
-                    if self.x_change > 0:
-                        self.rect.right = hits[0].rect.left
-                    if self.x_change < 0:
-                        self.rect.left = hits[0].rect.right
-                
-        if (dir == "y"):
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-                if self.game.entrances.has(hits[0]) == False or hits[0].enable == True:
-                    if self.y_change > 0:
-                        self.rect.bottom = hits[0].rect.top
-                    if self.y_change < 0:
-                        self.rect.top = hits[0].rect.bottom
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        if hits:
+            if (dir == "x"):
+                if self.x_change > 0:
+                    self.rect.right = hits[0].rect.left
+                if self.x_change < 0:
+                    self.rect.left = hits[0].rect.right
+            if (dir == "y"):
+                if self.y_change > 0:
+                    self.rect.bottom = hits[0].rect.top
+                if self.y_change < 0:
+                    self.rect.top = hits[0].rect.bottom
 
     def animate(self):
         if self.facing == "left":
-            if self.x_change == 0:
+            if self.x_change == 0 and self.y_change == 0:
                 self.image = self.game.character_spritesheet.get_sprite(3, 98, self.width, self.height)
             else:
                 self.image = self.left_animations[math.floor(self.animation_loop)]
                 self.animation_loop += 0.1
         
         if self.facing == "right":
-            if self.x_change == 0:
+            if self.x_change == 0 and self.y_change == 0:
                 self.image = self.game.character_spritesheet.get_sprite(3, 66, self.width, self.height)
             else:
                 self.image = self.right_animations[math.floor(self.animation_loop)]
@@ -190,6 +183,18 @@ class Player(pygame.sprite.Sprite):
         if self.animation_loop >= 3:
             self.animation_loop = 1
 
+    def find_nearest_enemy(self):
+        #update rad to place the gun
+        if self.y_change != 0 or self.x_change != 0:
+            self.rad = math.atan2(self.y_change, self.x_change)
+        nearest_enemy = None
+        if(self.game.enemies.sprites()):
+            nearest_enemy = min(self.game.enemies, key=lambda x: math.sqrt((x.rect.x - self.rect.x)**2 + (x.rect.y - self.rect.y)**2))
+            if math.sqrt((nearest_enemy.rect.x - self.rect.x)**2 + (nearest_enemy.rect.y - self.rect.y)**2) < self.weapon.scope:
+                dy = nearest_enemy.rect.y - self.rect.y
+                dx = nearest_enemy.rect.x - self.rect.x
+                self.rad = math.atan2(dy, dx)
+        return nearest_enemy
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, game, x, y, mapx, mapy, map):
@@ -206,7 +211,7 @@ class Enemy(pygame.sprite.Sprite):
         self.x_change = 0
         self.y_change = 0
 
-        self.facing = random.choice(["left", "right", "up", "down"])
+        self.facing = random.choice(["left", "right"])
         self.animation_loop = 1
         self.movement_loop = 0
         self.max_travel = random.randint(30, 60)
@@ -236,34 +241,10 @@ class Enemy(pygame.sprite.Sprite):
     
         self.HP = 3
         self.room = map
-
-    def normal_movement(self):
-        if self.facing == "up":
-            self.y_change -= ENEMY_SPEED
-            self.movement_loop -= 1
-            if self.movement_loop <= -self.max_travel:
-                self.facing = "down"
-        elif self.facing == "down":
-            self.y_change += ENEMY_SPEED
-            self.movement_loop -= 1
-            if self.movement_loop <= -self.max_travel:
-                self.facing = "up"
-        elif self.facing == "left":
-            self.x_change -= ENEMY_SPEED
-            self.movement_loop -= 1
-            if self.movement_loop <= -self.max_travel:
-                self.facing = "right"
-        elif self.facing == "right":
-            self.x_change += ENEMY_SPEED
-            self.movement_loop -= 1
-            if self.movement_loop <= -self.max_travel:
-                self.facing = "left"
-
-        if self.movement_loop <= -self.max_travel:
-            self.movement_loop = 0
-            self.facing = random.choice(["left", "right", "up", "down"])
-            self.max_travel = random.randint(30, 60)
-        pass
+        self.rad = 0
+        self.weapon = Glock(self.game, self)
+        self.attacking = False
+        self.rand = random.randint(1, 4)
 
     def update(self):
         self.movement()
@@ -278,26 +259,14 @@ class Enemy(pygame.sprite.Sprite):
         self.y_change = 0
 
     def animate(self):
-        if self.facing == "down":
-            if self.y_change == 0:
-                self.image = self.game.enemy_spritesheet.get_sprite(3, 2, self.width, self.height)
-            else:
-                self.image = self.down_animations[math.floor(self.animation_loop)]
-                self.animation_loop += 0.1
-        if self.facing == "up":
-            if self.y_change == 0:
-                self.image = self.game.enemy_spritesheet.get_sprite(3, 34, self.width, self.height)
-            else:
-                self.image = self.up_animations[math.floor(self.animation_loop)]
-                self.animation_loop += 0.1
         if self.facing == "left":
-            if self.x_change == 0:
+            if self.x_change == 0 and self.y_change == 0:
                 self.image = self.game.enemy_spritesheet.get_sprite(3, 66, self.width, self.height)
             else:
                 self.image = self.left_animations[math.floor(self.animation_loop)]
                 self.animation_loop += 0.1
         if self.facing == "right":
-            if self.x_change == 0:
+            if self.x_change == 0 and self.y_change == 0:
                 self.image = self.game.enemy_spritesheet.get_sprite(3, 98, self.width, self.height)
             else:
                 self.image = self.right_animations[math.floor(self.animation_loop)]
@@ -305,20 +274,17 @@ class Enemy(pygame.sprite.Sprite):
 
         if self.animation_loop >= 3:
             self.animation_loop = 1
-
+        
     def collide_blocks(self, dir):
-        if (dir == "x"):
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
-
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        hits += pygame.sprite.spritecollide(self, self.game.entrances, False)
+        if hits:
+            if (dir == "x"):
                 if self.x_change > 0:
                     self.rect.right = hits[0].rect.left
                 if self.x_change < 0:
                     self.rect.left = hits[0].rect.right
-                
-        if (dir == "y"):
-            hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-            if hits:
+            if (dir == "y"):
                 if self.y_change > 0:
                     self.rect.bottom = hits[0].rect.top
                 if self.y_change < 0:
@@ -338,28 +304,50 @@ class Enemy(pygame.sprite.Sprite):
                     self.game.player.mana = self.game.player.max_mana
 
     def movement(self):
-        if(math.sqrt((self.game.player.rect.x - self.rect.x)**2 + (self.game.player.rect.y - self.rect.y)**2) < ENEMY_SCOPE and self.room.open == False):
-            self.taunted_movement()
+        if(self.find_player() != None):
+            self.x_change = ENEMY_SPEED * math.cos(self.rad)
+            self.y_change = ENEMY_SPEED * math.sin(self.rad)
         else:
             self.normal_movement()
+        
+    
+    def normal_movement(self):
+        if self.rand == 1:
+            self.y_change -= ENEMY_SPEED
+        if self.rand == 2:
+            self.y_change += ENEMY_SPEED
+        if self.rand == 3:
+            self.x_change -= ENEMY_SPEED
+            self.facing = "left"
+            self.rad = math.pi
+        if self.rand == 4:
+            self.x_change += ENEMY_SPEED
+            self.facing = "right"
+            self.rad = 0
 
-    def taunted_movement(self):
-        dx = self.game.player.rect.centerx - self.rect.centerx
-        dy = self.game.player.rect.centery - self.rect.centery
-        self.rad = round(math.atan2(dy, dx),2)
-        self.x_change = ENEMY_SPEED * math.cos(self.rad)
-        self.y_change = ENEMY_SPEED * math.sin(self.rad)
-        #facing update
-        if abs(dx) > abs(dy):
-            if dx > 0:
-                self.facing = "right"
-            else:
-                self.facing = "left"
-        else:
-            if dy > 0:
-                self.facing = "down"
-            else:
-                self.facing = "up"
+        self.movement_loop -= 1
+        if self.movement_loop <= -self.max_travel:
+            self.movement_loop = 0
+            self.rand = random.randint(1, 4)
+            self.max_travel = random.randint(30, 60)
+        pass
+
+    def find_player(self):
+        player = self.game.player
+        #update rad to place the gun
+        if self.y_change != 0 or self.x_change != 0:
+            self.rad = math.atan2(self.y_change, self.x_change)
+        if math.sqrt((player.rect.x - self.rect.x)**2 + (player.rect.y - self.rect.y)**2) < self.weapon.scope and self.room.open == False:
+            dy = player.rect.y - self.rect.y
+            dx = player.rect.x - self.rect.x
+            self.rad = math.atan2(dy, dx)
+            return player
+        else: 
+            return None
+        
+    def kill(self):
+        self.weapon.kill()
+        pygame.sprite.Sprite.kill(self)
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y, mapx, mapy):
@@ -509,67 +497,57 @@ class Bullet(pygame.sprite.Sprite):
 
     def collide_blocks(self):
         hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        hits += pygame.sprite.spritecollide(self, self.game.entrances, False)
         if hits:
             self.kill()
 
 class Gun(pygame.sprite.Sprite):
-    def find_nearest_enemy(self):
-        nearest_enemy = None
-        self.rad = self.game.player.rad
-        if(self.game.enemies.sprites()):
-            nearest_enemy = min(self.game.enemies, key=lambda x: math.sqrt((x.rect.x - self.game.player.rect.x)**2 + (x.rect.y - self.game.player.rect.y)**2))
-            if math.sqrt((nearest_enemy.rect.x - self.game.player.rect.x)**2 + (nearest_enemy.rect.y - self.game.player.rect.y)**2) < self.scope:
-                dy = nearest_enemy.rect.y - self.game.player.rect.y
-                dx = nearest_enemy.rect.x - self.game.player.rect.x
-                self.rad = math.atan2(dy, dx)
-        return nearest_enemy
-    
     def update(self):
+        self.rad = self.owner.rad
         self.animate()
         self.movement()
 
     def animate(self):
         next_image = self.shoot_animation[math.floor(self.animation_loop)].copy()
-        if self.have_left_enemy(): 
+        if self.have_left_target(): 
             next_image = pygame.transform.flip(next_image.copy(), True, False)
             rad = self.rad + math.pi
-            self.game.player.facing = "left"
-            self._layer = PLAYER_LAYER - 1
-            self.game.all_sprites.change_layer(self, PLAYER_LAYER - 1)
-            self.game.guns.change_layer(self, PLAYER_LAYER - 1)
+            self.owner.facing = "left"
+            if self.alive():
+                self.game.all_sprites.change_layer(self, self.owner._layer - 1)
+                self.game.guns.change_layer(self, self.owner._layer - 1)
             self.image = pygame.transform.rotate(next_image, math.degrees(-rad))
         else: 
-            self.game.player.facing = "right"
-            self._layer = PLAYER_LAYER + 1
-            self.game.all_sprites.change_layer(self, PLAYER_LAYER + 1)
-            self.game.guns.change_layer(self, PLAYER_LAYER + 1)
+            self.owner.facing = "right"
+            if self.alive():
+                self.game.all_sprites.change_layer(self, self.owner._layer + 1)
+                self.game.guns.change_layer(self, self.owner._layer + 1)
             self.image = pygame.transform.rotate(next_image, math.degrees(-self.rad))
         self.image.set_colorkey(BLACK)
         self.rect = self.image.get_rect(center=self.rect.center)
 
-        if self.game.player.attacking:
+        if self.owner.attacking:
             self.animation_loop += 0.5
             if self.animation_loop >= 5:
                 self.animation_loop = 0
-                self.game.player.attacking = False
+                self.owner.attacking = False
 
     def movement(self):
-        if self.game.player.facing == "right":
-            self.rect.center = (self.game.player.rect.centerx + self.place_right[0], self.game.player.rect.centery + self.place_right[1])
-        if self.game.player.facing == "left":
-            self.rect.center = (self.game.player.rect.centerx - self.place_right[0], self.game.player.rect.centery + self.place_right[1])
+        if self.owner.facing == "right":
+            self.rect.center = (self.owner.rect.centerx + self.place_right[0], self.owner.rect.centery + self.place_right[1])
+        if self.owner.facing == "left":
+            self.rect.center = (self.owner.rect.centerx - self.place_right[0], self.owner.rect.centery + self.place_right[1])
 
-    def have_left_enemy(self):
-        self.find_nearest_enemy()
+    def have_left_target(self):
         return (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad >= math.pi/2 and  self.rad <= math.pi)
     
     def shoot(self):
         Bullet(self.game, self.find_heading(), self.rad, self.bullet_dmg, self.rad_offset, self.speed)
-        self.game.player.mana -= self.manacost
+        self.owner.mana -= self.manacost
 
     def can_shoot(self):
         now = pygame.time.get_ticks()
-        if now - self.timer > self.delay and self.game.player.mana >= self.manacost:
+        if now - self.timer > self.delay and self.owner.mana >= self.manacost:
             self.timer = now
             return True
         return False
@@ -579,18 +557,19 @@ class Gun(pygame.sprite.Sprite):
         vector = (self.headpos[0] - center_image[0], self.headpos[1] - center_image[1])
         hypotenuse = math.sqrt(vector[0]**2 + vector[1]**2)
         alpha = math.acos(vector[0]/hypotenuse)
-        if self.game.player.facing == "right":
+        if self.owner.facing == "right":
             alpha = -alpha
         headx = self.rect.centerx +  hypotenuse * math.cos(self.rad+alpha)
         heady = self.rect.centery +  hypotenuse * math.sin(self.rad+alpha)
         return headx, heady
 
 class Glock(Gun):
-    def __init__(self, game):
+    def __init__(self, game, owner):
         self._layer = GUN_LAYER
         self.game = game
-        self.x = self.game.player.rect.centerx
-        self.y = self.game.player.rect.centery
+        self.owner = owner
+        self.x = self.owner.rect.centerx
+        self.y = self.owner.rect.centery
         self.width = 48
         self.height = 32
         self.groups = self.game.all_sprites, self.game.guns
@@ -608,7 +587,7 @@ class Glock(Gun):
                             self.game.glock_spritesheet.get_sprite(144, 0, self.width, self.height),
                             self.game.glock_spritesheet.get_sprite(192, 0, self.width, self.height)]
         self.timer = 0
-        self.rad = self.game.player.rad
+        self.rad = self.owner.rad
         self.scope = GLOCK_SCOPE
         self.delay = GLOCK_DELAY
         self.bullet_dmg = 1
@@ -619,13 +598,15 @@ class Glock(Gun):
         self.headpos = (40, 8)
         self.manacost = 0
         self.speed = GLOCK_BULLET_SPEED
+        
 
 class AK47(Gun):
-    def __init__(self, game):
+    def __init__(self, game, owner):
         self._layer = GUN_LAYER
         self.game = game
-        self.x = self.game.player.rect.centerx
-        self.y = self.game.player.rect.centery
+        self.owner = owner
+        self.x = self.owner.rect.centerx
+        self.y = self.owner.rect.centery
         self.width = 64
         self.height = 16
         self.groups = self.game.all_sprites, self.game.guns
@@ -643,7 +624,7 @@ class AK47(Gun):
                             self.game.ak47_spritesheet.get_sprite(192, 0, self.width, self.height),
                             self.game.ak47_spritesheet.get_sprite(256, 0, self.width, self.height)]
         self.timer = 0
-        self.rad = self.game.player.rad
+        self.rad = self.owner.rad
         self.scope = AK47_SCOPE
         self.delay = AK47_DELAY
         self.bullet_dmg = 1
@@ -655,11 +636,12 @@ class AK47(Gun):
         self.speed = AK47_BULLET_SPEED
 
 class Sniper(Gun):
-    def __init__(self, game):
+    def __init__(self, game, owner):
         self._layer = GUN_LAYER
         self.game = game
-        self.x = self.game.player.rect.centerx
-        self.y = self.game.player.rect.centery
+        self.owner = owner
+        self.x = self.owner.rect.centerx
+        self.y = self.owner.rect.centery
         self.width = 80
         self.height = 32
         self.groups = self.game.all_sprites, self.game.guns
@@ -678,7 +660,7 @@ class Sniper(Gun):
                             self.game.sniper_spritesheet.get_sprite(320, 0, self.width, self.height)]
         
         self.timer = 0
-        self.rad = self.game.player.rad
+        self.rad = self.owner.rad
         self.scope = SNIPER_SCOPE
         self.delay = SNIPER_DELAY
         self.bullet_dmg = 3
@@ -711,8 +693,12 @@ class Entrance(pygame.sprite.Sprite):
     def update(self):
         if(self.enable): 
             self.image = self.game.terrain_spritesheet.get_sprite(704, 160, self.width, self.height)
+            self.game.blocks.add(self)
+            self.game.entrances.remove(self)
         else:
             self.image = self.game.terrain_spritesheet.get_sprite(95, 576, self.width, self.height)
+            self.game.blocks.remove(self)
+            self.game.entrances.add(self)
 
 class Button:
     def __init__(self, x, y, width, height, fg, bg, content, fontsize):
@@ -805,7 +791,7 @@ class MyMap(pygame.sprite.Sprite):
         #get num enemy in self.enemies
         num_enemies = len(self.enemies.sprites())
 
-        if(num_enemies == 0 and self.current_phase == self.max_phase):
+        if(num_enemies == 0 and self.current_phase >= self.max_phase):
             self.clear = True
         if( num_enemies == 0 and self.current_phase < self.max_phase):
             self.current_phase += 1
@@ -848,7 +834,7 @@ class MapList:
         for tilemap in tilemaps:
             self.maps.append(MyMap(tilemap, game, 2))
 
-        self.maps[0].max_phase = 1
+        self.maps[0].max_phase = 0
         self.link(self.maps[0], self.maps[1], "right")
         self.link(self.maps[1], self.maps[2], "top")
         self.link(self.maps[1], self.maps[3], "bottom")
@@ -873,9 +859,6 @@ class MapList:
             m2.left = pipe
             m2.mappingpos = [m1.mappingpos[0] + 2, m1.mappingpos[1]]
             pipe.mappingpos = [m1.mappingpos[0] + 1, m1.mappingpos[1]]
-            m1.update_rect()
-            m2.update_rect()
-            pipe.update_rect()
         if(dir == "left"):
             pipe.tilemap = hpipemap
             m1.left = pipe
