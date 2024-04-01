@@ -90,6 +90,7 @@ class Player(pygame.sprite.Sprite):
         self.animate()
         self.find_nearest_enemy()
         self.collide_enemy()
+        self.collide_bullet()
 
         self.rect.x += self.x_change
         self.collide_blocks("x")
@@ -141,15 +142,24 @@ class Player(pygame.sprite.Sprite):
     def collide_enemy(self):
         hits = pygame.sprite.spritecollide(self, self.game.enemies, False)
         if hits:
-            if pygame.time.get_ticks() - self.timer_hit > 800:
-                if(self.armour > 0):
-                    self.armour -= 1
-                else:
-                    self.HP -= 1
-                self.timer_attack = pygame.time.get_ticks()
-                self.timer_hit = pygame.time.get_ticks()
-                if(self.HP <= 0):
-                    self.game.playing = False
+            self.get_dmg(1)
+
+    def get_dmg(self, dmg):
+        if pygame.time.get_ticks() - self.timer_hit > 800:
+            if(self.armour > 0):
+                self.armour -= dmg
+            else:
+                self.HP -= dmg
+            self.timer_attack = pygame.time.get_ticks()
+            self.timer_hit = pygame.time.get_ticks()
+            if(self.HP <= 0):
+                self.game.playing = False
+
+    def collide_bullet(self):
+        hits = pygame.sprite.spritecollide(self, self.game.enemies_bullets, False)
+        if hits:
+            self.get_dmg(1)
+            hits[0].kill()
 
     def collide_blocks(self, dir):
         hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
@@ -242,7 +252,10 @@ class Enemy(pygame.sprite.Sprite):
         self.HP = 3
         self.room = map
         self.rad = 0
-        self.weapon = Glock(self.game, self)
+
+        self.weapon = Sniper(self.game, self)
+        self.weapon.delay *= 3
+
         self.attacking = False
         self.rand = random.randint(1, 4)
 
@@ -305,8 +318,11 @@ class Enemy(pygame.sprite.Sprite):
 
     def movement(self):
         if(self.find_player() != None):
-            self.x_change = ENEMY_SPEED * math.cos(self.rad)
-            self.y_change = ENEMY_SPEED * math.sin(self.rad)
+            if self.weapon.scope < ENEMY_SCOPE:
+                self.x_change = ENEMY_SPEED * math.cos(self.rad)
+                self.y_change = ENEMY_SPEED * math.sin(self.rad)
+            if self.weapon.can_shoot():
+                self.weapon.shoot()
         else:
             self.normal_movement()
         
@@ -337,7 +353,13 @@ class Enemy(pygame.sprite.Sprite):
         #update rad to place the gun
         if self.y_change != 0 or self.x_change != 0:
             self.rad = math.atan2(self.y_change, self.x_change)
-        if math.sqrt((player.rect.x - self.rect.x)**2 + (player.rect.y - self.rect.y)**2) < self.weapon.scope and self.room.open == False:
+        distance = math.sqrt((player.rect.x - self.rect.x)**2 + (player.rect.y - self.rect.y)**2)
+        if distance < ENEMY_SCOPE and self.room.open == False:
+            dy = player.rect.y - self.rect.y
+            dx = player.rect.x - self.rect.x
+            self.rad = math.atan2(dy, dx)
+            return player
+        elif distance > self.weapon.scope and self.room.open == False:
             dy = player.rect.y - self.rect.y
             dx = player.rect.x - self.rect.x
             self.rad = math.atan2(dy, dx)
@@ -456,7 +478,7 @@ class Attack(pygame.sprite.Sprite):
     #end
 #end           
 class Bullet(pygame.sprite.Sprite):
-    def __init__(self, game, heading, rad, dmg, rad_offset, speed):
+    def __init__(self, game, heading, rad, dmg, rad_offset, speed, owner):
         self._layer = BULLET_LAYER
         self.game = game
         self.dmg = dmg
@@ -464,7 +486,11 @@ class Bullet(pygame.sprite.Sprite):
         self.y = heading[1]
         self.width = 10
         self.height = 10
-        self.groups = self.game.all_sprites, self.game.bullets
+        if isinstance(owner, Enemy):
+            self.groups = self.game.all_sprites, self.game.enemies_bullets
+        else:
+            self.groups = self.game.all_sprites, self.game.bullets
+            
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         self.image = pygame.Surface((self.width, self.height))
@@ -542,12 +568,13 @@ class Gun(pygame.sprite.Sprite):
         return (self.rad > -math.pi and self.rad < -math.pi/2) or (self.rad >= math.pi/2 and  self.rad <= math.pi)
     
     def shoot(self):
-        Bullet(self.game, self.find_heading(), self.rad, self.bullet_dmg, self.rad_offset, self.speed)
-        self.owner.mana -= self.manacost
+        Bullet(self.game, self.find_heading(), self.rad, self.bullet_dmg, self.rad_offset, self.speed, self.owner)
+        if isinstance(self.owner, Player):
+            self.owner.mana -= self.manacost
 
     def can_shoot(self):
         now = pygame.time.get_ticks()
-        if now - self.timer > self.delay and self.owner.mana >= self.manacost:
+        if now - self.timer > self.delay and (isinstance(self.owner, Enemy) or self.owner.mana >= self.manacost):
             self.timer = now
             return True
         return False
@@ -564,7 +591,7 @@ class Gun(pygame.sprite.Sprite):
         return headx, heady
 
 class Glock(Gun):
-    def __init__(self, game, owner):
+    def __init__(self, game, owner, delay = GLOCK_DELAY):
         self._layer = GUN_LAYER
         self.game = game
         self.owner = owner
@@ -589,7 +616,7 @@ class Glock(Gun):
         self.timer = 0
         self.rad = self.owner.rad
         self.scope = GLOCK_SCOPE
-        self.delay = GLOCK_DELAY
+        self.delay = delay
         self.bullet_dmg = 1
         self.rad_offset = 3
 
@@ -601,7 +628,7 @@ class Glock(Gun):
         
 
 class AK47(Gun):
-    def __init__(self, game, owner):
+    def __init__(self, game, owner, delay = AK47_DELAY):
         self._layer = GUN_LAYER
         self.game = game
         self.owner = owner
@@ -626,7 +653,7 @@ class AK47(Gun):
         self.timer = 0
         self.rad = self.owner.rad
         self.scope = AK47_SCOPE
-        self.delay = AK47_DELAY
+        self.delay = delay
         self.bullet_dmg = 1
         self.rad_offset = 4
         #pos against player to place gun when facing right
@@ -636,7 +663,7 @@ class AK47(Gun):
         self.speed = AK47_BULLET_SPEED
 
 class Sniper(Gun):
-    def __init__(self, game, owner):
+    def __init__(self, game, owner,delay = SNIPER_DELAY):
         self._layer = GUN_LAYER
         self.game = game
         self.owner = owner
@@ -662,7 +689,7 @@ class Sniper(Gun):
         self.timer = 0
         self.rad = self.owner.rad
         self.scope = SNIPER_SCOPE
-        self.delay = SNIPER_DELAY
+        self.delay = delay
         self.bullet_dmg = 3
         self.rad_offset = 0
         #pos against player to place gun when facing right
@@ -838,6 +865,7 @@ class MapList:
         self.link(self.maps[0], self.maps[1], "right")
         self.link(self.maps[1], self.maps[2], "top")
         self.link(self.maps[1], self.maps[3], "bottom")
+        self.link(self.maps[1], self.maps[4], "right")
 
     def draw(self):
         self.DFS_draw(self.maps[0])
