@@ -221,7 +221,7 @@ class Enemy(pygame.sprite.Sprite):
         self.x_change = 0
         self.y_change = 0
 
-        self.facing = random.choice(["left", "right"])
+        self.facing = "right"
         self.animation_loop = 1
         self.movement_loop = 0
         self.max_travel = random.randint(30, 60)
@@ -232,14 +232,6 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x  = self.x
         self.rect.y = self.y
-
-        self.down_animations = [self.game.enemy_spritesheet.get_sprite(3, 2, self.width, self.height),
-                            self.game.enemy_spritesheet.get_sprite(35, 2, self.width, self.height),
-                            self.game.enemy_spritesheet.get_sprite(67, 2, self.width, self.height)]
-        
-        self.up_animations = [self.game.enemy_spritesheet.get_sprite(3, 34, self.width, self.height),
-                            self.game.enemy_spritesheet.get_sprite(35, 34, self.width, self.height),
-                            self.game.enemy_spritesheet.get_sprite(67, 34, self.width, self.height)]
 
         self.right_animations = [self.game.enemy_spritesheet.get_sprite(3, 66, self.width, self.height),
                             self.game.enemy_spritesheet.get_sprite(35, 66, self.width, self.height),
@@ -253,7 +245,7 @@ class Enemy(pygame.sprite.Sprite):
         self.room = map
         self.rad = 0
 
-        self.weapon = Sniper(self.game, self)
+        self.weapon = Glock(self.game, self)
         self.weapon.delay *= 3
 
         self.attacking = False
@@ -274,13 +266,13 @@ class Enemy(pygame.sprite.Sprite):
     def animate(self):
         if self.facing == "left":
             if self.x_change == 0 and self.y_change == 0:
-                self.image = self.game.enemy_spritesheet.get_sprite(3, 66, self.width, self.height)
+                self.image = self.left_animations[0]
             else:
                 self.image = self.left_animations[math.floor(self.animation_loop)]
                 self.animation_loop += 0.1
         if self.facing == "right":
             if self.x_change == 0 and self.y_change == 0:
-                self.image = self.game.enemy_spritesheet.get_sprite(3, 98, self.width, self.height)
+                self.image = self.right_animations[0]
             else:
                 self.image = self.right_animations[math.floor(self.animation_loop)]
                 self.animation_loop += 0.1
@@ -317,15 +309,14 @@ class Enemy(pygame.sprite.Sprite):
                     self.game.player.mana = self.game.player.max_mana
 
     def movement(self):
-        if(self.find_player() != None):
-            if self.weapon.scope < ENEMY_SCOPE:
-                self.x_change = ENEMY_SPEED * math.cos(self.rad)
-                self.y_change = ENEMY_SPEED * math.sin(self.rad)
-            if self.weapon.can_shoot():
-                self.weapon.shoot()
+        if self.y_change != 0 or self.x_change != 0:
+            self.rad = math.atan2(self.y_change, self.x_change)
+        player = self.game.player
+        distance = math.sqrt((player.rect.x - self.rect.x)**2 + (player.rect.y - self.rect.y)**2)
+        if distance < ENEMY_SCOPE and self.room.open == False:
+            self.taunted_movement(distance)
         else:
             self.normal_movement()
-        
     
     def normal_movement(self):
         if self.rand == 1:
@@ -348,24 +339,16 @@ class Enemy(pygame.sprite.Sprite):
             self.max_travel = random.randint(30, 60)
         pass
 
-    def find_player(self):
+    def taunted_movement(self, distance = ENEMY_SCOPE):
         player = self.game.player
-        #update rad to place the gun
-        if self.y_change != 0 or self.x_change != 0:
-            self.rad = math.atan2(self.y_change, self.x_change)
-        distance = math.sqrt((player.rect.x - self.rect.x)**2 + (player.rect.y - self.rect.y)**2)
-        if distance < ENEMY_SCOPE and self.room.open == False:
-            dy = player.rect.y - self.rect.y
-            dx = player.rect.x - self.rect.x
-            self.rad = math.atan2(dy, dx)
-            return player
-        elif distance > self.weapon.scope and self.room.open == False:
-            dy = player.rect.y - self.rect.y
-            dx = player.rect.x - self.rect.x
-            self.rad = math.atan2(dy, dx)
-            return player
-        else: 
-            return None
+        dy = player.rect.y - self.rect.y
+        dx = player.rect.x - self.rect.x
+        self.rad = math.atan2(dy, dx)
+        if distance > self.weapon.scope:
+            self.x_change += ENEMY_SPEED * math.cos(self.rad)
+            self.y_change += ENEMY_SPEED * math.sin(self.rad)
+        elif self.weapon.can_shoot():
+            self.weapon.shoot()
         
     def kill(self):
         self.weapon.kill()
@@ -527,6 +510,8 @@ class Bullet(pygame.sprite.Sprite):
         if hits:
             self.kill()
 
+#TODO: scope rieng cho quai va nguoi choi
+#BUG: quai quay lung lai khi tan cong
 class Gun(pygame.sprite.Sprite):
     def update(self):
         self.rad = self.owner.rad
