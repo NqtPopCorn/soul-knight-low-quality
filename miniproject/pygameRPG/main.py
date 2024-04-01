@@ -142,31 +142,37 @@ class Game:
         pass
 
     def win_screen(self):
-        intro = True
+        outro = True
         title = self.font.render('Pygame RPG', True, BLACK)
         title_rect = title.get_rect(x=10,y=10)
         text = self.font.render('You win!!!', True, BLUE)
         text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
 
         play_button = Button(10, 50, 120, 50, WHITE, GREY,'Play', 32)
-        while(intro):
+        exit_button = Button(10, 120, 120, 50, WHITE, RED,'Exit', 32)
+        while(outro):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
-                    intro = False
+                    outro = False
             
             mouse_pos = pygame.mouse.get_pos()
             mouse_pressed = pygame.mouse.get_pressed()
             if play_button.isPressed(mouse_pos, mouse_pressed):
-                intro = False
-
+                outro = False
+            if exit_button.isPressed(mouse_pos, mouse_pressed):
+                self.running = False
+                outro = False
             self.screen.blit(self.intro_background, (0,0))
             self.screen.blit(title, title_rect)
             self.screen.blit(play_button.image, play_button.rect)
+            self.screen.blit(exit_button.image, exit_button.rect)
             self.screen.blit(text, text_rect)
             self.clock.tick(FPS)
             pygame.display.update()
-        pass
+
+        if self.running:
+            self.new()
 
     def intro_screen(self):
         intro = True
@@ -176,6 +182,7 @@ class Game:
         text_rect = text.get_rect(center=(WIN_WIDTH/2, WIN_HEIGHT/2))
 
         play_button = Button(10, 50, 120, 50, WHITE, BLACK,'Play', 32)
+        
         while(intro):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -186,7 +193,7 @@ class Game:
             mouse_pressed = pygame.mouse.get_pressed()
             if play_button.isPressed(mouse_pos, mouse_pressed):
                 intro = False
-
+            
             self.screen.blit(self.intro_background, (0,0))
             self.screen.blit(title, title_rect)
             self.screen.blit(play_button.image, play_button.rect)
