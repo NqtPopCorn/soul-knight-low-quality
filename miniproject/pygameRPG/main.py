@@ -21,7 +21,7 @@ import sys
 #           | | :  `- \`. ;`. _/; .'/ /  .' ; |
 #           \  \ `-.   \_\_`. _.'_/_/  -' _.' /
 # ===========`-.`___`-.__\ \___  /__.-'_.'_.-'================
-#                         `=--=-'
+#                         `=--=-'                              
 
 
 class Game: 
@@ -59,6 +59,7 @@ class Game:
         self.bullets = pygame.sprite.LayeredUpdates()
         self.guns = pygame.sprite.LayeredUpdates()
         self.entrances = pygame.sprite.LayeredUpdates()
+        self.enemies_bullets = pygame.sprite.LayeredUpdates()
         #player health and armor bar
         self.bars = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
