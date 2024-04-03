@@ -158,7 +158,7 @@ class Player(pygame.sprite.Sprite):
     def collide_bullet(self):
         hits = pygame.sprite.spritecollide(self, self.game.enemies_bullets, False)
         if hits:
-            self.get_dmg(1)
+            self.get_dmg(0)
             hits[0].kill()
 
     def collide_blocks(self, dir):
@@ -207,7 +207,7 @@ class Player(pygame.sprite.Sprite):
         return nearest_enemy
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, game, x, y, mapx, mapy, map):
+    def __init__(self, game, x, y, mapx, mapy, map, weapon_ratio_dict = ENEMY_WEAPON_RATIO):
         self.game = game
         self._layer = ENERMY_LAYER
         self.groups = self.game.all_sprites, self.game.enemies
@@ -245,16 +245,14 @@ class Enemy(pygame.sprite.Sprite):
         self.room = map
         self.rad = 0
 
-        rand = random.randint(1, 100)
-        if rand >= 50:
+        rand_weapon = random.choices(list(weapon_ratio_dict.keys()), weights=weapon_ratio_dict.values(), k=1)[0]
+        if rand_weapon == "glock":
             self.weapon = Glock(self.game, self, PLAYER_GLOCK_DELAY)
-        elif rand >= 30:
+        elif rand_weapon == "ak47":
             self.weapon = AK47(self.game, self, PLAYER_AK47_DELAY)
         else:
             self.weapon = Sniper(self.game, self, PLAYER_SNIPER_DELAY)
         
-        self.weapon.delay *= 4
-
         self.attacking = False
         self.rand = random.randint(1, 4)
 
@@ -319,8 +317,8 @@ class Enemy(pygame.sprite.Sprite):
         if self.y_change != 0 or self.x_change != 0:
             self.rad = math.atan2(self.y_change, self.x_change)
         player = self.game.player
-        distance = math.sqrt((player.rect.x - self.rect.x)**2 + (player.rect.y - self.rect.y)**2)
-        if distance < ENEMY_SCOPE and self.room.open == False:
+        distance = math.sqrt((player.rect.centerx - self.rect.centerx)**2 + (player.rect.centery - self.rect.centery)**2)
+        if distance < self.weapon.scope + 96 and self.room.open == False:
             self.taunted_movement(distance)
         else:
             self.normal_movement()
@@ -346,16 +344,18 @@ class Enemy(pygame.sprite.Sprite):
             self.max_travel = random.randint(30, 60)
         pass
 
-    def taunted_movement(self, distance = ENEMY_SCOPE):
+    def taunted_movement(self, distance):
         player = self.game.player
-        dy = player.rect.y - self.rect.y
-        dx = player.rect.x - self.rect.x
+        dy = player.rect.centery - self.rect.centery
+        dx = player.rect.centerx - self.rect.centerx
         self.rad = math.atan2(dy, dx)
         if distance > self.weapon.scope:
             self.x_change += ENEMY_SPEED * math.cos(self.rad)
             self.y_change += ENEMY_SPEED * math.sin(self.rad)
         elif self.weapon.can_shoot():
             self.weapon.shoot()
+
+    #cu cach 1 khoang thoi gian, boss lai lam mot hanh dong ngau nhien
         
     def kill(self):
         self.weapon.kill()
@@ -364,22 +364,21 @@ class Enemy(pygame.sprite.Sprite):
 class Boss(Enemy):
     def __init__(self, game, x, y, mapx, mapy, map):
         self.game = game
-        # self.groups = self.game.all_sprites, self.game.boss
-        # pygame.sprite.Sprite.__init__(self, self.groups)
-        super().__init__(game, x, y, mapx, mapy, map)
+        Enemy.__init__(self, self.game, x, y, mapx, mapy, map, {"ak47": 1})
         
-        self.x = mapx + x * BOSS_SIZE
-        self.y = mapy + y * BOSS_SIZE
         self.width = BOSS_SIZE
         self.height = BOSS_SIZE
         self.image = self.game.boss_spritesheet.get_sprite(0, 2, self.width, self.height)
-        self.down_animations = [self.game.boss_spritesheet.get_sprite(3, 2, self.width, self.height),
-                            self.game.boss_spritesheet.get_sprite(35, 2, self.width, self.height),
-                            self.game.boss_spritesheet.get_sprite(67, 2, self.width, self.height)]
+        self.rect = self.image.get_rect()
+        self.rect.x = self.x
+        self.rect.y = self.y
+        # self.down_animations = [self.game.boss_spritesheet.get_sprite(3, 2, self.width, self.height),
+        #                     self.game.boss_spritesheet.get_sprite(35, 2, self.width, self.height),
+        #                     self.game.boss_spritesheet.get_sprite(67, 2, self.width, self.height)]
         
-        self.up_animations = [self.game.boss_spritesheet.get_sprite(3, 34, self.width, self.height),
-                            self.game.boss_spritesheet.get_sprite(35, 34, self.width, self.height),
-                            self.game.boss_spritesheet.get_sprite(67, 34, self.width, self.height)]
+        # self.up_animations = [self.game.boss_spritesheet.get_sprite(3, 34, self.width, self.height),
+        #                     self.game.boss_spritesheet.get_sprite(35, 34, self.width, self.height),
+                            # self.game.boss_spritesheet.get_sprite(67, 34, self.width, self.height)]
 
         self.right_animations = [self.game.boss_spritesheet.get_sprite(12,83, self.width, self.height),
                             self.game.boss_spritesheet.get_sprite(93,75, self.width, self.height),
@@ -389,41 +388,23 @@ class Boss(Enemy):
                             self.game.boss_spritesheet.get_sprite(113, 160, self.width, self.height),
                             self.game.boss_spritesheet.get_sprite(203, 160, self.width, self.height)]
         self.HP = 10
-        self.weapon = random.choice([Glock(self.game, self), AK47(self.game, self), Sniper(self.game, self)])
-        self.dmg = 0
-  
+
     def animate(self):
         if self.facing == "left":
             if self.x_change == 0 and self.y_change == 0:
-                self.image = self.game.boss_spritesheet.get_sprite(3, 66, self.width, self.height)
+                self.image = self.left_animations[0]
             else:
                 self.image = self.left_animations[math.floor(self.animation_loop)]
                 self.animation_loop += 0.1
         if self.facing == "right":
             if self.x_change == 0 and self.y_change == 0:
-                self.image = self.game.boss_spritesheet.get_sprite(12, 83, self.width, self.height)
+                self.image = self.right_animations[0]
             else:
                 self.image = self.right_animations[math.floor(self.animation_loop)]
                 self.animation_loop += 0.1
 
         if self.animation_loop >= 3:
             self.animation_loop = 1
-    def collide_blocks(self, dir):
-        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
-        hits += pygame.sprite.spritecollide(self, self.game.entrances, False)
-        if hits:
-            if (dir == "x"):
-                if self.x_change > 0:
-                    self.rect.right=hits[0].rect.left
-                    
-                if self.x_change < 0:
-                    self.rect.left = hits[0].rect.right
-            if (dir == "y"):
-                if self.y_change > 0:
-                    self.rect.bottom = hits[0].rect.top
-                 
-                if self.y_change < 0:
-                    self.rect.top = hits[0].rect.bottom
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y, mapx, mapy):
@@ -630,7 +611,7 @@ class Gun(pygame.sprite.Sprite):
 
     def can_shoot(self):
         now = pygame.time.get_ticks()
-        if now - self.timer > self.delay and (isinstance(self.owner, Enemy) or self.owner.mana >= self.manacost):
+        if now - self.timer > self.delay and (isinstance(self.owner, Enemy) or isinstance(self.owner, Enemy) or self.owner.mana >= self.manacost):
             self.timer = now
             return True
         return False
@@ -681,7 +662,8 @@ class Glock(Gun):
         self.headpos = (40, 8)
         self.manacost = 0
         self.speed = GLOCK_BULLET_SPEED
-        
+        if isinstance(self.owner, Enemy) and isinstance(self.owner, Boss) == False:
+            self.delay *= 4
 
 class AK47(Gun):
     def __init__(self, game, owner, delay = PLAYER_AK47_DELAY, bullet_dmg = PLAYER_AK47_DMG):
@@ -717,6 +699,8 @@ class AK47(Gun):
         self.headpos = (48, 4)
         self.manacost = 2
         self.speed = AK47_BULLET_SPEED
+        if isinstance(self.owner, Enemy) and isinstance(self.owner, Boss) == False:
+            self.delay *= 4
 
 class Sniper(Gun):
     def __init__(self, game, owner,delay = PLAYER_SNIPER_DELAY, bullet_dmg = PLAYER_SNIPER_DMG):
@@ -753,6 +737,8 @@ class Sniper(Gun):
         self.headpos = (48, 6)
         self.manacost = 5
         self.speed = SNIPER_BULLET_SPEED
+        if isinstance(self.owner, Enemy) and isinstance(self.owner, Boss) == False:
+            self.delay *= 4
 
 class Entrance(pygame.sprite.Sprite):
     def __init__(self, game, x, y, mapx, mapy):
@@ -836,9 +822,10 @@ class MyMap(pygame.sprite.Sprite):
         self.enemies = pygame.sprite.Group()
         self.open = True
         self.max_phase = phase_num
-        self.current_phase = 1
+        self.current_phase = 0
         self.available_pos = []
         self.clear = False
+        self.current_phase = 1
 
     def draw(self):
         self.create_tilemap()
@@ -907,7 +894,8 @@ class MyMap(pygame.sprite.Sprite):
                 if col == 'E' or col == 'P' or col == '.':
                     self.available_pos.append([j, i])
                 if col == '5':
-                    Boss(self.game, j, i, self.x, self.y, self)
+                    boss = Boss(self.game, j, i, self.x, self.y, self)
+                    self.enemies.add(boss)
                 if(col == ' '): continue
                 Ground(self.game, j, i, self.x, self.y)
         
@@ -920,12 +908,12 @@ class MapList:
             self.maps.append(MyMap(tilemap, game, 2))
 
         self.maps[0].max_phase = 0
+        self.maps[1].max_phase = 0
         self.link(self.maps[0], self.maps[1], "right")
         self.link(self.maps[1], self.maps[2], "top")
         self.link(self.maps[1], self.maps[3], "bottom")
         self.link(self.maps[1], self.maps[4], "right")
         self.link(self.maps[4], self.maps[5], "right")
-        self.maps[5].max_phase = 1
 
     def draw(self):
         self.DFS_draw(self.maps[0])

@@ -775,7 +775,7 @@ class Entrance(pygame.sprite.Sprite):
 
 class Button:
     def __init__(self, x, y, width, height, fg, bg, content, fontsize):
-        self.font = pygame.font.Font('Arial.ttf', fontsize)
+        self.font = pygame.font.Font('Truong\'sclone/Arial.ttf', fontsize)
         self.content = content
         self.x = x
         self.y = y
@@ -854,9 +854,7 @@ class MyMap(pygame.sprite.Sprite):
     def update(self):
         self.update_phase()
         num_enemies = len(self.game.enemies.sprites())
-        print(num_enemies)
         num_boss = len(self.boss.sprites())
-        print("num_boss", num_boss)
         if num_enemies != 0:
         
                     for entrance in self.entrances:
@@ -1027,7 +1025,7 @@ class PlayerBars(pygame.sprite.Sprite):
         self.groups = game.bars
         pygame.sprite.Sprite.__init__(self, self.groups)
         self.game = game
-        self.font = pygame.font.Font('Arial.ttf', 16)
+        self.font = pygame.font.Font('Truong\'sclone/Arial.ttf', 16)
 
         self.image = pygame.Surface((180, 92))
         self.rect = self.image.get_rect()
