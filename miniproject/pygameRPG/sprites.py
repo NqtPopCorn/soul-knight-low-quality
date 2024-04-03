@@ -52,8 +52,8 @@ class Player(pygame.sprite.Sprite):
         self.score = 0
 
         self.max_hp = 5
-        self.max_armour = 3
-        self.max_mana = 128
+        self.max_armour = 4
+        self.max_mana = 200
 
         self.HP = self.max_hp
         self.armour = self.max_armour
@@ -101,7 +101,7 @@ class Player(pygame.sprite.Sprite):
         self.y_change = 0
 
         #TODO: sau 4s khong chien dau se hoi 1 giap / s
-        if self.armour < self.max_armour and pygame.time.get_ticks() - self.timer_attack > 4000:
+        if self.armour < self.max_armour and pygame.time.get_ticks() - self.timer_attack > 3000:
             if pygame.time.get_ticks() - self.timer_armour > 1000:
                 self.armour += 1
                 self.timer_armour = pygame.time.get_ticks()
@@ -245,8 +245,15 @@ class Enemy(pygame.sprite.Sprite):
         self.room = map
         self.rad = 0
 
-        self.weapon = Glock(self.game, self)
-        self.weapon.delay *= 3
+        rand = random.randint(1, 100)
+        if rand >= 50:
+            self.weapon = Glock(self.game, self, PLAYER_GLOCK_DELAY)
+        elif rand >= 30:
+            self.weapon = AK47(self.game, self, PLAYER_AK47_DELAY)
+        else:
+            self.weapon = Sniper(self.game, self, PLAYER_SNIPER_DELAY)
+        
+        self.weapon.delay *= 4
 
         self.attacking = False
         self.rand = random.randint(1, 4)
@@ -353,6 +360,70 @@ class Enemy(pygame.sprite.Sprite):
     def kill(self):
         self.weapon.kill()
         pygame.sprite.Sprite.kill(self)
+
+class Boss(Enemy):
+    def __init__(self, game, x, y, mapx, mapy, map):
+        self.game = game
+        # self.groups = self.game.all_sprites, self.game.boss
+        # pygame.sprite.Sprite.__init__(self, self.groups)
+        super().__init__(game, x, y, mapx, mapy, map)
+        
+        self.x = mapx + x * BOSS_SIZE
+        self.y = mapy + y * BOSS_SIZE
+        self.width = BOSS_SIZE
+        self.height = BOSS_SIZE
+        self.image = self.game.boss_spritesheet.get_sprite(0, 2, self.width, self.height)
+        self.down_animations = [self.game.boss_spritesheet.get_sprite(3, 2, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(35, 2, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(67, 2, self.width, self.height)]
+        
+        self.up_animations = [self.game.boss_spritesheet.get_sprite(3, 34, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(35, 34, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(67, 34, self.width, self.height)]
+
+        self.right_animations = [self.game.boss_spritesheet.get_sprite(12,83, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(93,75, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(190, 75, self.width, self.height)]
+
+        self.left_animations = [self.game.boss_spritesheet.get_sprite(18, 160, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(113, 160, self.width, self.height),
+                            self.game.boss_spritesheet.get_sprite(203, 160, self.width, self.height)]
+        self.HP = 10
+        self.weapon = random.choice([Glock(self.game, self), AK47(self.game, self), Sniper(self.game, self)])
+        self.dmg = 0
+  
+    def animate(self):
+        if self.facing == "left":
+            if self.x_change == 0 and self.y_change == 0:
+                self.image = self.game.boss_spritesheet.get_sprite(3, 66, self.width, self.height)
+            else:
+                self.image = self.left_animations[math.floor(self.animation_loop)]
+                self.animation_loop += 0.1
+        if self.facing == "right":
+            if self.x_change == 0 and self.y_change == 0:
+                self.image = self.game.boss_spritesheet.get_sprite(12, 83, self.width, self.height)
+            else:
+                self.image = self.right_animations[math.floor(self.animation_loop)]
+                self.animation_loop += 0.1
+
+        if self.animation_loop >= 3:
+            self.animation_loop = 1
+    def collide_blocks(self, dir):
+        hits = pygame.sprite.spritecollide(self, self.game.blocks, False)
+        hits += pygame.sprite.spritecollide(self, self.game.entrances, False)
+        if hits:
+            if (dir == "x"):
+                if self.x_change > 0:
+                    self.rect.right=hits[0].rect.left
+                    
+                if self.x_change < 0:
+                    self.rect.left = hits[0].rect.right
+            if (dir == "y"):
+                if self.y_change > 0:
+                    self.rect.bottom = hits[0].rect.top
+                 
+                if self.y_change < 0:
+                    self.rect.top = hits[0].rect.bottom
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, game, x, y, mapx, mapy):
@@ -576,7 +647,7 @@ class Gun(pygame.sprite.Sprite):
         return headx, heady
 
 class Glock(Gun):
-    def __init__(self, game, owner, delay = GLOCK_DELAY):
+    def __init__(self, game, owner, delay = PLAYER_GLOCK_DELAY, bullet_dmg = PLAYER_GLOCK_DMG):
         self._layer = GUN_LAYER
         self.game = game
         self.owner = owner
@@ -602,7 +673,7 @@ class Glock(Gun):
         self.rad = self.owner.rad
         self.scope = GLOCK_SCOPE
         self.delay = delay
-        self.bullet_dmg = 1
+        self.bullet_dmg = bullet_dmg
         self.rad_offset = 3
 
         #pos against player to place gun when facing right
@@ -613,7 +684,7 @@ class Glock(Gun):
         
 
 class AK47(Gun):
-    def __init__(self, game, owner, delay = AK47_DELAY):
+    def __init__(self, game, owner, delay = PLAYER_AK47_DELAY, bullet_dmg = PLAYER_AK47_DMG):
         self._layer = GUN_LAYER
         self.game = game
         self.owner = owner
@@ -639,7 +710,7 @@ class AK47(Gun):
         self.rad = self.owner.rad
         self.scope = AK47_SCOPE
         self.delay = delay
-        self.bullet_dmg = 1
+        self.bullet_dmg = bullet_dmg
         self.rad_offset = 4
         #pos against player to place gun when facing right
         self.place_right = (6, 4)
@@ -648,7 +719,7 @@ class AK47(Gun):
         self.speed = AK47_BULLET_SPEED
 
 class Sniper(Gun):
-    def __init__(self, game, owner,delay = SNIPER_DELAY):
+    def __init__(self, game, owner,delay = PLAYER_SNIPER_DELAY, bullet_dmg = PLAYER_SNIPER_DMG):
         self._layer = GUN_LAYER
         self.game = game
         self.owner = owner
@@ -675,7 +746,7 @@ class Sniper(Gun):
         self.rad = self.owner.rad
         self.scope = SNIPER_SCOPE
         self.delay = delay
-        self.bullet_dmg = 3
+        self.bullet_dmg = bullet_dmg
         self.rad_offset = 0
         #pos against player to place gun when facing right
         self.place_right = (8, 4)
@@ -835,6 +906,8 @@ class MyMap(pygame.sprite.Sprite):
                     self.game.player.set_weapons()
                 if col == 'E' or col == 'P' or col == '.':
                     self.available_pos.append([j, i])
+                if col == '5':
+                    Boss(self.game, j, i, self.x, self.y, self)
                 if(col == ' '): continue
                 Ground(self.game, j, i, self.x, self.y)
         
@@ -851,6 +924,8 @@ class MapList:
         self.link(self.maps[1], self.maps[2], "top")
         self.link(self.maps[1], self.maps[3], "bottom")
         self.link(self.maps[1], self.maps[4], "right")
+        self.link(self.maps[4], self.maps[5], "right")
+        self.maps[5].max_phase = 1
 
     def draw(self):
         self.DFS_draw(self.maps[0])

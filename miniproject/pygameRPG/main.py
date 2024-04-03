@@ -41,6 +41,7 @@ class Game:
         self.glock_spritesheet = Spritesheet('miniproject/pygameRPG/img/Glock-SpriteSheet.png')
         self.ak47_spritesheet = Spritesheet('miniproject/pygameRPG/img/AK47-SpriteSheet.png')
         self.sniper_spritesheet = Spritesheet('miniproject/pygameRPG/img/SniperRifle-SpriteSheet.png')
+        self.boss_spritesheet = Spritesheet('miniproject/pygameRPG/img/boss1.jpg')
 
         self.t1 = pygame.time.get_ticks()
         self.player: Player = None
@@ -60,6 +61,7 @@ class Game:
         self.guns = pygame.sprite.LayeredUpdates()
         self.entrances = pygame.sprite.LayeredUpdates()
         self.enemies_bullets = pygame.sprite.LayeredUpdates()
+        
         #player health and armor bar
         self.bars = pygame.sprite.LayeredUpdates()
         self.create_tilemap()
