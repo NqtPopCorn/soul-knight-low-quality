@@ -1,2 +1,4 @@
-a = [1,2,3][3 ,4]
-print(a)
+import random as rd
+
+d = { "truong": 6, "ngo": 3, "quang": 5}
+rd.choice
