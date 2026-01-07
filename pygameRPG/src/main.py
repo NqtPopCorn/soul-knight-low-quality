@@ -2,7 +2,12 @@ import pygame
 from sprites import *
 from config import *
 import sys
-# new comment
+from utils import Spritesheet, get_asset_path
+from sprites.map import GameMap
+from ui import Button
+from sprites.weapons import Attack
+from sprites.characters import Player, PlayerBars
+
 #                            _
 #                         _ooOoo_
 #                        o8888888o
@@ -29,25 +34,25 @@ class Game:
         pygame.init()
         self.screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font('pygameRPG/Arial.ttf', 32)
+        self.font = pygame.font.Font(get_asset_path('Arial.ttf'), 32)
         self.running = True
 
-        self.character_spritesheet = Spritesheet('pygameRPG/img/character.png')
-        self.terrain_spritesheet = Spritesheet('pygameRPG/img/terrain.png')
-        self.enemy_spritesheet = Spritesheet('pygameRPG/img/enemy.png')
-        self.attack_spritesheet = Spritesheet('pygameRPG/img/attack.png')
-        self.intro_background = pygame.image.load('pygameRPG/img/introbackground.png')
-        self.gameover_background = pygame.image.load('pygameRPG/img/gameover.png')
-        self.glock_spritesheet = Spritesheet('pygameRPG/img/Glock-SpriteSheet.png')
-        self.ak47_spritesheet = Spritesheet('pygameRPG/img/AK47-SpriteSheet.png')
-        self.sniper_spritesheet = Spritesheet('pygameRPG/img/SniperRifle-SpriteSheet.png')
-        self.boss_spritesheet = Spritesheet('pygameRPG/img/boss1.jpg')
+        self.character_spritesheet = Spritesheet(get_asset_path('img/character.png'))
+        self.terrain_spritesheet = Spritesheet(get_asset_path('img/terrain.png'))
+        self.enemy_spritesheet = Spritesheet(get_asset_path('img/enemy.png'))
+        self.attack_spritesheet = Spritesheet(get_asset_path('img/attack.png'))
+        self.intro_background = pygame.image.load(get_asset_path('img/introbackground.png'))
+        self.gameover_background = pygame.image.load(get_asset_path('img/gameover.png'))
+        self.glock_spritesheet = Spritesheet(get_asset_path('img/Glock-SpriteSheet.png'))
+        self.ak47_spritesheet = Spritesheet(get_asset_path('img/AK47-SpriteSheet.png'))
+        self.sniper_spritesheet = Spritesheet(get_asset_path('img/SniperRifle-SpriteSheet.png'))
+        self.boss_spritesheet = Spritesheet(get_asset_path('img/boss1.jpg'))
 
         self.t1 = pygame.time.get_ticks()
         self.player: Player = None
 
     def create_tilemap(self):
-        self.maps = MapList(tilemaps, self)
+        self.maps = GameMap(tilemaps, self)
         self.maps.draw()
 
     # new game start
@@ -204,6 +209,7 @@ class Game:
             self.clock.tick(FPS)
             pygame.display.update()
         pass
+
 def main():
     g = Game()
     g.intro_screen()
